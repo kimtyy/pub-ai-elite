@@ -102,6 +102,13 @@ const App = {
     },
 
     switchTab(tabName) {
+        // If already on scan tab and scan button clicked, perform capture
+        const activeTab = document.querySelector('.tab-content.active');
+        if (tabName === 'scan' && activeTab && activeTab.id === 'section-scan') {
+            this.capturePhoto();
+            return;
+        }
+
         this.stopCamera();
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         const sec = document.getElementById('section-' + tabName);

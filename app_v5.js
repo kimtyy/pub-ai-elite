@@ -174,10 +174,16 @@ const App = {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0);
         
-        // v8.2 Super-Reader Binarization Pre-processing
+        // v8.2 Super-Reader Pre-processing
         this.preprocessImage(canvas);
         
         const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        
+        // Critical: Stop camera immediately to prevent resource conflict
+        this.stopCamera();
+        const statusText = document.querySelector('.scan-status-text');
+        if(statusText) statusText.innerText = "이미지 캡처 완료! 분석을 시작합니다.";
+
         this.runOCR(imgData);
     },
 
@@ -218,28 +224,45 @@ const App = {
      * v6.0 Verification Center (Side-by-Side Review)
      */
     openVerificationCenter(imgData, data) {
-        // Essential: Close all other modals first to reset overlay state
-        this.closeModal();
-        
-        const m = document.getElementById('verifyModal');
-        if (m) {
-            m.style.display = 'grid';
-            m.classList.add('active'); // CSS hook for animations
-        }
-        
-        const canvas = document.getElementById('verifyCanvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        img.onload = () => {
-            canvas.width = img.width; canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-        };
-        img.src = imgData;
+        console.log("🛠 Opening Verification Center with data:", data);
+        try {
+            // Reset modal states safely
+            document.querySelectorAll('.modal-overlay').forEach(o => o.style.display = 'none');
+            
+            const m = document.getElementById('verifyModal');
+            if (m) {
+                m.style.display = 'grid';
+            } else {
+                console.error("verifyModal element not found!");
+                alert("검증 화면을 찾을 수 없습니다 (ID: verifyModal).");
+                return;
+            }
 
-        document.getElementById('verifyVendor').value = data.vendor || "가맹점 정보 없음";
-        this.setVerifyType('PURCHASE');
-        this.renderVerifyItems(data.items || []);
-        this.updateVerifySummary();
+            const canvas = document.getElementById('verifyCanvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width = img.width; canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = imgData;
+            }
+
+            // Fill Data
+            const vendorInput = document.getElementById('verifyVendor');
+            if(vendorInput) vendorInput.value = data.vendor || "가맹점 정보 없음";
+            
+            this.setVerifyType('PURCHASE');
+            this.renderVerifyItems(data.items || []);
+            this.updateVerifySummary();
+            
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            console.log("✅ Verification Center successfully opened");
+        } catch (err) {
+            console.error("🔥 Error in openVerificationCenter:", err);
+            alert("검증 화면 로딩 중 오류가 발생했습니다: " + err.message);
+        }
     },
 
     setVerifyType(type) {
@@ -276,12 +299,23 @@ const App = {
 
     updateVerifySummary() {
         const data = this.currentScanData;
-        const subtotal = data.items.reduce((a, b) => a + (b.qty * b.unitPrice), 0);
-        const total = Math.ceil(subtotal * 1.1);
-        const vat = total - subtotal;
-        document.getElementById('verifySubtotal').innerText = '₩' + subtotal.toLocaleString();
-        document.getElementById('verifyVAT').innerText = '₩' + vat.toLocaleString();
-        document.getElementById('verifyTotal').innerText = '₩' + total.toLocaleString();
+        if (!data || !data.items) return;
+        
+        try {
+            const subtotal = data.items.reduce((a, b) => a + (parseInt(b.qty || 0) * parseInt(b.unitPrice || 0)), 0);
+            const total = Math.ceil(subtotal * 1.1);
+            const vat = total - subtotal;
+            
+            const subEl = document.getElementById('verifySubtotal');
+            const vatEl = document.getElementById('verifyVAT');
+            const totalEl = document.getElementById('verifyTotal');
+            
+            if(subEl) subEl.innerText = '₩' + subtotal.toLocaleString();
+            if(vatEl) vatEl.innerText = '₩' + vat.toLocaleString();
+            if(totalEl) totalEl.innerText = '₩' + total.toLocaleString();
+        } catch (e) {
+            console.error("Error updating summary:", e);
+        }
     },
 
     confirmVerification() {

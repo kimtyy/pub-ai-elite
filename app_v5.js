@@ -70,7 +70,10 @@ const App = {
 
     bindEvents() {
         const _id = (id) => document.getElementById(id);
-        const on = (id, fn) => { const el = _id(id); if(el) el.onclick = fn; };
+        const on = (id, fn) => { 
+            const el = _id(id); 
+            if(el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
+        };
         
         on('addPurchaseBtn', () => this.openModal('purchaseModal'));
         on('savePurchaseBtn', () => this.handleSavePurchase());
@@ -80,6 +83,14 @@ const App = {
         on('btnExportCSV', () => this.exportCSV());
         on('btnExportJSON', () => this.exportJSON());
         on('btnConfirmScan', () => this.confirmScannedItems());
+        
+        // Navigation (ensure data-tab links work reliably)
+        document.querySelectorAll('.nav-links li').forEach(li => {
+            li.addEventListener('click', (e) => {
+                const tab = li.getAttribute('data-tab');
+                if (tab) this.switchTab(tab);
+            });
+        });
 
         // Weather selector sync
         document.querySelectorAll('input[name="weather"]').forEach(radio => {

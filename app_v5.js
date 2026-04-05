@@ -372,19 +372,17 @@ const App = {
         
         lines.forEach(line => {
             if (line.match(/^\d{10,14}$/)) return;
-            // v8.2.19 Elite Filter: Handle spaces in footer keywords
             if (line.match(/합\s*계|과\s*세|부\s*가|받\s*은|카\s*드|신\s*용|총\s*액|세\s*액|공\s*급|미\s*수|전\s*화|대\s*표|전\s*표|번\s*호|일\s*시/)) return;
 
-            // v8.2.19 Elite Structural Reverse-Parsing
-            const words = line.replace(/,/g, '').split(/\s+/);
-            const nums = words.filter(w => /^\d+$/.test(w) && w.length < 10).map(n => parseInt(n));
+            // v8.2.20 Elite Reverse-Parsing (Comma-Friendly)
+            const words = line.split(/\s+/);
+            const nums = words.map(w => parseInt(w.replace(/,/g, ''))).filter(n => !isNaN(n) && n.toString().length < 10);
             
             if (nums.length >= 2) {
-                // The right-most is total, next left is qty (usually small), next left is unit price
                 const total = nums[nums.length - 1];
                 let qty = 1;
                 let unitPrice = total;
-                let priceAnchor = words.lastIndexOf(total.toString());
+                let priceAnchorIdx = -1;
 
                 if (nums.length >= 3) {
                     const candidateQty = nums[nums.length - 2];
@@ -392,20 +390,16 @@ const App = {
                     if (candidateQty < 100 && candidatePrice >= 100) {
                         qty = candidateQty;
                         unitPrice = candidatePrice;
-                        priceAnchor = words.lastIndexOf(candidatePrice.toString());
                     }
-                } else if (nums.length === 2) {
-                    // Could be UnitPrice Qty or UnitPrice Total
-                    const first = nums[0];
-                    const second = nums[1];
-                    if (first > 100 && second < 100) { unitPrice = first; qty = second; }
-                    priceAnchor = words.indexOf(unitPrice.toString());
+                } else if (nums.length === 2 && nums[0] > 100 && nums[1] < 100) {
+                    unitPrice = nums[0]; qty = nums[1];
                 }
 
-                if (unitPrice > 100) {
-                    // Name is everything before the first price-like number
-                    let name = words.slice(0, priceAnchor).join(' ').replace(/[^\w가-힣\s]/g, '').trim();
-                    name = name.replace(/[\d]$/, '').trim(); // Remove terminal qty digit if joined
+                // Find where the unitPrice word starts in the original words array
+                priceAnchorIdx = words.findIndex(w => parseInt(w.replace(/,/g, '')) === unitPrice);
+
+                if (unitPrice > 100 && priceAnchorIdx !== -1) {
+                    let name = words.slice(0, priceAnchorIdx).join(' ').replace(/[^\w가-힣\s]/g, '').trim();
                     if (name.length > 1) {
                         items.push({ name: name, qty: qty, unitPrice: unitPrice });
                     }

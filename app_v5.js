@@ -275,14 +275,23 @@ const App = {
 
     renderVerifyItems(items) {
         const container = document.getElementById('verifyItemsContainer');
-        container.innerHTML = items.length > 0 ? items.map((it, idx) => `
+        if (!container) return;
+        
+        // v8.2.9 Header Row
+        const headerHtml = `
+            <div style="display:grid; grid-template-columns: 1fr 35px 70px 75px; align-items:center; gap:6px; padding:10px 12px; margin-bottom:5px; font-size:0.75rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
+                <div>품명</div><div>수량</div><div>단가</div><div style="text-align:right;">금액</div>
+            </div>
+        `;
+        
+        container.innerHTML = headerHtml + (items.length > 0 ? items.map((it, idx) => `
             <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 35px 70px 75px; align-items:center; gap:6px; margin-bottom:10px; padding:12px; background:rgba(255,255,255,0.03); border-radius:10px;">
                 <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff;" onchange="App.currentScanData.items[${idx}].name=this.value">
                 <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
                 <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:right;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
                 <span style="text-align:right; font-weight:800; color:var(--accent-magenta);">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
             </div>
-        `).join('') : '<p style="color:var(--text-dim); text-align:center; padding:20px;">품목 인식 실패</p>';
+        `).join('') : '<p style="color:var(--text-dim); text-align:center; padding:20px;">품목 인식 실패</p>');
         
         const addBtn = document.createElement('button');
         addBtn.className = "btn btn-outline full-width"; addBtn.style.marginTop = "10px";
@@ -332,56 +341,53 @@ const App = {
     },
 
     parseReceipt(text) {
-        console.log("📄 High-Res OCR Analysis Start...");
+        console.log("📄 v8.2.8 High-Precision Parsing...");
         if (!text) return { vendor: "정보 미식별", items: [], total: 0, classification: "기타" };
         
-        const lines = text.split('\n').map(l => l.trim().replace(/[,]/g, '')).filter(l => l.length > 1);
+        // Clean text but keep digits and commas for price extraction
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
         
-        // 1. Intelligent Vendor Search (v8.2.7)
+        // 1. Vendor Lookup (Improved for Distribution/Wholesale)
         let vendor = "공급처 불명";
         const bizKeywords = /유통|공급|식당|본점|상사|마트|상점|나라|테크|식품|코리아|푸드|물산|컴퍼니|농산|정육|수산/;
-        const headers = /영수증|신용카드|매출|전표|승인|일자|번호|주소|사업자/;
+        const headers = /영수증|신용카드|매출|전표|승인|일자|번호|주소|사업자|대표|전화/;
 
-        // Try searching top 8 lines
         for (let i = 0; i < Math.min(8, lines.length); i++) {
-            if (lines[i].match(bizKeywords) && !lines[i].match(headers)) {
+            if (lines[i].match(bizKeywords) && !lines[i].match(/대표|전화|사업/)) {
                 vendor = lines[i].replace(/[<>\[\]\(\)*]/g, '').trim();
                 break;
             }
         }
-        // Fallback: If no keyword, take the 1st or 2nd line if it's substantial
         if (vendor === "공급처 불명" && lines.length > 0) {
-            vendor = lines[0].match(headers) ? (lines[1] || lines[0]) : lines[0];
+            vendor = lines[0].match(/영수증|매출/) ? (lines[1] || lines[0]) : lines[0];
         }
 
-        // 2. Resilient Item & Price Extraction
         const items = [];
         let detectedTotal = 0;
         
         lines.forEach(line => {
-            // Price pattern: digits at the end of a line
-            const prices = line.match(/(\d{3,8})$|(\d{3,8})\s/g);
-            if (prices) {
-                const lastPrice = parseInt(prices[prices.length - 1]);
-                if (lastPrice > 100) {
-                    if (line.match(/합계|총액|TOTAL|결제|금액|받은돈/i)) {
-                        detectedTotal = Math.max(detectedTotal, lastPrice);
-                    } else if (items.length < 15 && !line.match(headers)) {
-                        const name = line.replace(/\d+/g, '').replace(/[^\w가-힣\s]/g, '').trim();
+            // Price Discovery: Look for the LARGEST number at the middle or end of the line
+            const matches = line.replace(/,/g, '').match(/(\d{4,10})/g);
+            if (matches) {
+                const val = Math.max(...matches.map(m => parseInt(m)));
+                if (val > 100 && val < 5000000) {
+                    if (line.match(/합계|총액|TOTAL|결제|금액|받은돈|합 계/i)) {
+                        detectedTotal = Math.max(detectedTotal, val);
+                    } else if (items.length < 15 && !line.match(/전화|사업|일자|승인|대표|주소/)) {
+                        // Extract name by removing the price and other digits
+                        let name = line.replace(/[\d,]{4,}/g, '').replace(/[^\w가-힣\s\(\)]/g, '').trim();
                         if (name.length > 1) {
-                            items.push({ name: name, qty: 1, unitPrice: lastPrice });
+                            items.push({ name: name, qty: 1, unitPrice: val });
                         }
                     }
                 }
             }
         });
 
-        // 3. Fallback for Total (Sum of items if no keyword found)
         if (detectedTotal === 0 && items.length > 0) {
             detectedTotal = items.reduce((a, b) => a + b.unitPrice, 0);
         }
 
-        // 4. Auto Categorization
         const classification = text.match(/마트|공급|유통|농산|수산|도매/) ? '식자재' : (text.match(/식당|음식|커피|카페/) ? '식자재' : '기타');
 
         return { vendor, items, total: detectedTotal, classification };

@@ -277,21 +277,21 @@ const App = {
         const container = document.getElementById('verifyItemsContainer');
         if (!container) return;
         
-        // v8.2.14 Ultra-Wide Name Column Layout
+        // v8.2.18 Elite Layout: Right-Aligned Numbers
         container.style.overflowX = "hidden";
         
         const headerHtml = `
-            <div style="display:grid; grid-template-columns: 1fr 30px 65px 75px; align-items:center; gap:4px; padding:10px 4px; margin-bottom:5px; font-size:0.7rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
-                <div style="text-align:left; padding-left:10px;">품명</div><div>수량</div><div>단가</div><div>금액</div>
+            <div style="display:grid; grid-template-columns: 1fr 35px 75px 85px; align-items:center; gap:6px; padding:10px 8px; margin-bottom:5px; font-size:0.7rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
+                <div style="text-align:left; padding-left:10px;">품명</div><div>수량</div><div style="text-align:right;">단가</div><div style="text-align:right;">금액</div>
             </div>
         `;
         
         container.innerHTML = headerHtml + (items.length > 0 ? items.map((it, idx) => `
-            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 30px 65px 75px; align-items:center; gap:4px; margin-bottom:8px; padding:8px 4px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:0.8rem;">
-                <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff; width:100\%; font-size:0.8rem; overflow-x:auto;" onchange="App.currentScanData.items[${idx}].name=this.value">
-                <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center; width:100\%; font-size:0.75rem;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
-                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:center; width:100\%; font-size:0.75rem;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
-                <span style="text-align:center; font-weight:800; color:var(--accent-magenta); font-size:0.75rem; white-space:nowrap;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
+            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 35px 75px 85px; align-items:center; gap:6px; margin-bottom:8px; padding:8px 6px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:0.85rem;">
+                <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff; width:100\%; font-size:0.85rem; overflow-x:auto;" onchange="App.currentScanData.items[${idx}].name=this.value">
+                <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
+                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:right; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
+                <span style="text-align:right; font-weight:800; color:var(--accent-magenta); font-size:0.8rem; white-space:nowrap;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
             </div>
         `).join('') : '<p style="color:var(--text-dim); text-align:center; padding:20px;">품목 인식 실패</p>');
         
@@ -372,30 +372,27 @@ const App = {
         
         lines.forEach(line => {
             if (line.match(/^\d{10,14}$/)) return;
-            // v8.2.17 Super Robust Footer Filter
-            if (line.match(/합계|합 계|과세|부가세|받은돈|카드|신용|결제|총액|공급|세액|전표|번호|일시|시간|보관|판매|매출/)) return;
+            // v8.2.18 Robust Footer & Header Filter
+            if (line.match(/합계|합 계|과세|부가세|받은돈|카드|신용|결제|총액|공급|세액|전표|번호|일시|시간|보관|판매|매출|대표|전화|담당|사업/)) return;
 
-            // 1. Try Splitting by Multiple Spaces (v8.2.17 Primary)
+            // 1. Try Splitting by Multiple Spaces (v8.2.18 4-Column Support)
             const cols = line.split(/\s{2,}/).filter(c => c.length > 0);
-            if (cols.length >= 2) {
+            if (cols.length >= 3) {
                 const namePart = cols[0].replace(/[^\w가-힣\s]/g, '').replace(/\d+$/, '').trim();
-                const priceMatch = cols[1].replace(/,/g, '').match(/\d{4,10}/);
-                if (priceMatch && namePart.length > 1) {
-                    items.push({ name: namePart, qty: 1, unitPrice: parseInt(priceMatch[0]) });
-                    return; // Skip fallback if gap detection worked
+                const priceVal = parseInt(cols[1].replace(/,/g, ''));
+                let qtyVal = parseInt(cols[2]) || 1;
+                
+                if (priceVal > 100 && namePart.length > 1) {
+                    items.push({ name: namePart, qty: qtyVal, unitPrice: priceVal });
+                    return;
                 }
             }
 
-            // 2. Fallback: Smart Split (v8.2.16 Style)
+            // 2. Fallback: Smart Split (Keep for single-space lines)
             const matches = line.replace(/,/g, '').match(/(\d{4,10})/g);
             if (matches) {
                 let val = parseInt(matches[0]);
                 let rawName = line.split(matches[0])[0].trim();
-                const concatMatch = rawName.match(/(\d+)$/);
-                if (concatMatch && val.toString().startsWith(concatMatch[0])) {
-                    val = parseInt(val.toString().slice(concatMatch[0].length));
-                    rawName = rawName.replace(/(\d+)$/, '').trim();
-                }
                 if (val > 100 && val < 5000000) {
                     let name = rawName.replace(/[^\w가-힣\s]/g, '').trim();
                     if (name.length > 1) items.push({ name: name, qty: 1, unitPrice: val });

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PUB AI v5.0 | OCR ELITE Intelligence</title>
+    <link rel="stylesheet" href="style_v5.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- PWA & Mobile Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#05060f">
+    
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Premium Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <div class="logo">
+                    <i data-lucide="brain-circuit"></i>
+                    <span>PUB AI <small style="font-size: 0.6rem; opacity: 0.7; vertical-align: super; color: var(--accent-gold);">v5.0 ELITE</small></span>
+                </div>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-tab="dashboard"><a href="#" onclick="event.preventDefault(); App.switchTab('dashboard')"><i data-lucide="home"></i> <span>대시보드</span></a></li>
+                <li data-tab="report"><a href="#" onclick="event.preventDefault(); App.switchTab('report')"><i data-lucide="pie-chart"></i> <span>경비 정산</span></a></li>
+                <li data-tab="scan"><a href="#" onclick="event.preventDefault(); App.switchTab('scan')"><i data-lucide="scan-line"></i> <span>AI 스캔</span></a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Viewport -->
+        <main class="content">
+            <!-- Dashboard View -->
+            <div id="section-dashboard" class="tab-content active">
+                <header class="main-header">
+                    <div class="welcome">
+                        <h1>Expert AI 정산 시스템</h1>
+                        <div class="welcome-meta">
+                            <p>사장님만을 위한 지능형 경비 처리 비서입니다.</p>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="addPurchaseBtn">
+                            <i data-lucide="plus"></i> 수동 입력
+                        </button>
+                        <button class="btn btn-gold" id="scanReceiptBtn">
+                            <i data-lucide="sparkles"></i> 즉시 정산
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Matrix Stats Grid -->
+                <section class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <span class="label">이번 달 총 매출</span>
+                            <div class="amount" id="dash-sales">₩0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <span class="label">자동 인식 매입액</span>
+                            <div class="amount" id="dash-purchase" style="color: var(--accent-magenta);">₩0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card premium">
+                        <div class="stat-info">
+                            <span class="label">최근 24시간 스캔</span>
+                            <div class="amount" id="dash-bep">0건</div>
+                        </div>
+                        <i data-lucide="zap" style="position: absolute; right: 20px; top: 20px; color: var(--accent-gold); opacity: 0.5;"></i>
+                    </div>
+                </section>
+
+                <div class="main-grid">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>AI 경영 인사이트</h2>
+                        </div>
+                        <!-- AI Strategy Card -->
+                        <div class="ai-strategy-card" style="margin-top: 0;">
+                            <div class="ai-header">
+                                <i data-lucide="cpu" style="width: 24px; height: 24px;"></i>
+                                <h3>코다리 부장 AI 경영 브리핑</h3>
+                            </div>
+                            <p class="ai-insight-text" id="trendInsight">데이터 분석 및 보고 준비 중...</p>
+                        </div>
+                        
+                        <div class="chart-container" style="height: 250px; margin-top: 30px;">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>최근 정산 내역</h2>
+                        </div>
+                        <div id="historyList" class="history-list">
+                            <!-- Populated by app_v5.js -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Management Report View -->
+            <div id="section-report" class="tab-content">
+                <header class="tab-header" style="margin-bottom: 2.5rem;">
+                    <h2>카테고리별 정산 분석</h2>
+                    <p>AI가 분류한 지출 항목별 비중입니다.</p>
+                </header>
+
+                <div class="panel">
+                    <div class="chart-container">
+                        <canvas id="expenseCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scan View -->
+            <div id="section-scan" class="tab-content">
+                <div class="panel" style="padding: 0; overflow: hidden; position: relative; border-radius: var(--radius-lg); background: #000;">
+                    <!-- Live Camera Feed -->
+                    <div id="cameraPreviewContainer" style="position: relative; width: 100%; aspect-ratio: 3/4; overflow: hidden;">
+                        <video id="cameraVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        <div class="scanner-overlay">
+                            <div class="scanner-line"></div>
+                            <div class="corners-container">
+                                <div class="corner t-l"></div><div class="corner t-r"></div>
+                                <div class="corner b-l"></div><div class="corner b-r"></div>
+                            </div>
+                            <p class="scan-status-text">영수증을 사각형 안에 맞춰주세요</p>
+                        </div>
+                    </div>
+
+                    <div class="scan-controls" style="padding: 2rem; display: flex; justify-content: space-around; align-items: center; background: var(--sidebar-bg);">
+                        <button class="btn btn-icon-lg" onclick="App.toggleFlash()" id="flashToggle"><i data-lucide="zap"></i></button>
+                        <button class="btn btn-shutter" onclick="App.capturePhoto()" style="width: 80px; height: 80px; padding: 0; border: 4px solid #fff; border-radius: 50%; background: transparent;">
+                            <div style="width: 66px; height: 66px; background: #fff; border-radius: 50%; margin: 3px;"></div>
+                        </button>
+                        <button class="btn btn-icon-lg" onclick="App.switchCamera()"><i data-lucide="refresh-cw"></i></button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="modalOverlay">
+        <!-- AI Scan ELITE Result Modal -->
+        <div class="modal" id="scanModal">
+            <div id="scanLoading" style="padding: 5rem; text-align: center;">
+                <div class="scanner-line" style="position: relative; margin-bottom: 2rem;"></div>
+                <h3 style="color: var(--accent-gold);">AI 심층 분석 중...</h3>
+                <p style="color: var(--text-dim); margin-top: 1rem;">비정형 데이터 구조화가 진행되고 있습니다.</p>
+            </div>
+
+            <div id="scanResult" class="modal-body" style="display: none;">
+                <div class="modal-header" style="padding: 0 0 1.5rem 0; background: transparent; position: relative;">
+                    <h2 style="color: var(--accent-cyan);">정산 분석 결과 리포트</h2>
+                    <button class="close-btn" onclick="App.closeModal()" style="font-size: 2rem; color: var(--text-dim);">&times;</button>
+                </div>
+
+                <!-- 1. Business Header -->
+                <div class="receipt-header-card">
+                    <div class="biz-info">
+                        <h3 id="scanVendor">가맹점명 로딩 중...</h3>
+                        <p>사업자번호: <span id="scanBizId">-</span></p>
+                        <p id="scanAddress">주소 정보 로딩 중...</p>
+                    </div>
+                    <div class="trans-info">
+                        <p>거래일시: <span class="val" id="scanDateTime">-</span></p>
+                        <p>결제수단: <span class="val" id="scanPayMethod">-</span></p>
+                        <p>승인번호: <span class="val" id="scanApprovalNo">-</span></p>
+                        <div class="ai-badge"><i data-lucide="check-circle-2" style="width:14px;"></i> AI 추천: <span id="scanClassification">분류 중</span></div>
+                    </div>
+                </div>
+
+                <!-- 2. Item Table -->
+                <div class="elite-table-container">
+                    <table class="elite-table">
+                        <thead>
+                            <tr>
+                                <th>품목명</th>
+                                <th>수량</th>
+                                <th>단가</th>
+                                <th style="text-align: right;">금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scanTableBody">
+                            <!-- Items populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 3. Summary -->
+                <div class="receipt-footer-summary">
+                    <div class="summary-row">
+                        <span class="summary-label">공급가액</span>
+                        <span class="summary-val" id="scanSubtotal">₩0</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">부가세 (VAT)</span>
+                        <span class="summary-val" id="scanVAT">₩0</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span class="summary-label" style="color: var(--text-dim); font-size: 1rem;">총 정산 합계</span>
+                        <span id="scanTotal">₩0</span>
+                    </div>
+                </div>
+
+                <!-- 4. Actions -->
+                <div class="export-group">
+                    <button class="btn btn-outline" id="btnExportCSV">
+                        <i data-lucide="file-spreadsheet"></i> 엑셀(CSV) 추출
+                    </button>
+                    <button class="btn btn-outline" id="btnExportJSON">
+                        <i data-lucide="file-code"></i> JSON 데이터
+                    </button>
+                </div>
+                
+                <button class="btn btn-gold" id="btnConfirmScan" style="width: 100%; justify-content: center; margin-top: 1.5rem; padding: 1.2rem;">
+                    <i data-lucide="check-circle"></i> 장부 등록 및 정산 완료
+                </button>
+            </div>
+        </div>
+
+        <!-- Manual Purchase Entry (Minimal) -->
+        <div class="modal" id="purchaseModal">
+            <header class="modal-header">
+                <h2>매입 수동 입력</h2>
+                <button class="close-btn" onclick="App.closeModal()">&times;</button>
+            </header>
+            <div class="modal-body">
+                <div class="form-group"><label>상품/품목명</label><input type="text" id="itemName"></div>
+                <div class="row">
+                    <div class="col"><label>단가</label><input type="number" id="unitPrice"></div>
+                    <div class="col"><label>수량</label><input type="number" id="qty"></div>
+                </div>
+                <div class="form-group">
+                    <label>카테고리</label>
+                    <select id="category">
+                        <option value="식자재">식자재</option><option value="주류">주류</option><option value="소모품">소모품</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="savePurchaseBtn" style="width: 100%; justify-content: center;">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Installation Badge & FAB -->
+    <button class="fab-btn" onclick="App.switchTab('scan')" title="보이스/카메라 즉시 촬영">
+        <i data-lucide="camera"></i>
+    </button>
+
+    <script src="app_v5.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

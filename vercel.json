@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "name": "pub-ai-elite",
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "style_v*.css", "use": "@vercel/static" },
+    { "src": "app_v*.js", "use": "@vercel/static" },
+    { "src": "manifest.json", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
+}

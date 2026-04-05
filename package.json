@@ -1,0 +1,16 @@
+{
+  "name": "pub-ai-elite",
+  "version": "5.0.0",
+  "description": "AI Receipt OCR & Simple Settlement Expert - PUB AI Elite Edition",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve .",
+    "build": "echo 'Static build complete'"
+  },
+  "keywords": ["ai", "ocr", "receipt", "ledger", "smart-settlement"],
+  "author": "Kodari Manager AI",
+  "license": "MIT",
+  "dependencies": {
+    "serve": "^14.2.1"
+  }
+}

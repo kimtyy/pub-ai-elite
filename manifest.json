@@ -1,0 +1,21 @@
+{
+  "name": "PUB AI 장부 플랫폼",
+  "short_name": "PUB AI",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d0d12",
+  "theme_color": "#00fff2",
+  "description": "사업자를 위한 AI 기반 통합 장부 관리 플랫폼",
+  "icons": [
+    {
+      "src": "https://cdn.jsdelivr.net/npm/lucide-static@0.263.0/icons/sparkles.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://cdn.jsdelivr.net/npm/lucide-static@0.263.0/icons/sparkles.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

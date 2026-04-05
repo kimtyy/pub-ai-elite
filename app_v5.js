@@ -289,18 +289,71 @@ const App = {
             }
         });
 
-        // 4. 최종 데이터 보정
+        // 4. 산술 검증 및 디지털 스무딩 (v5.1 신규 로직)
+        items.forEach(it => {
+            it.verified = (it.unitPrice * it.qty === it.amount);
+            
+            // 산술 오류 시 교정 (8->3, 0->9 등 유사 숫자 보정 시도)
+            if (!it.verified) {
+                const candidates = this.getArithmeticCandidates(it);
+                if (candidates) {
+                    it.unitPrice = candidates.unitPrice;
+                    it.qty = candidates.qty;
+                    it.amount = candidates.amount;
+                    it.verified = true;
+                    it.autoCorrected = true;
+                }
+            }
+        });
+
+        // 5. 최종 데이터 보정 및 신뢰도 체크
         let total = detectedTotal;
-        const subtotalSum = items.reduce((a, b) => a + b.amount, 0);
-        if (subtotalSum > total && subtotalSum < 100000000) total = subtotalSum;
+        const subtotalSum = items.filter(it => it.verified).reduce((a, b) => a + b.amount, 0);
         
-        // 데이터가 전혀 없을 경우 최소한의 기본값
+        // 아이템 합계와 키워드 합계가 1% 이내로 차이나면 신뢰도 높음
+        const totalReliable = Math.abs(subtotalSum * 1.1 - total) < (total * 0.01);
+        if (!totalReliable && subtotalSum > 0) {
+            // 아이템들의 검산이 완벽하다면 아이템 합계를 실제 총합으로 간주
+            total = Math.ceil(subtotalSum * 1.1);
+        }
+        
         if (total === 0) total = 50000;
 
         const finalSubtotal = Math.ceil(total / 1.1);
         const finalVat = total - finalSubtotal;
 
-        return { vendor, bizId, address, phone, date, time, payMethod, approvalNo, items, subtotal: finalSubtotal, vat: finalVat, total, classification: this.getClassification(vendor, time, total) };
+        return { vendor, bizId, address, phone, date, time, payMethod, approvalNo, items, subtotal: finalSubtotal, vat: finalVat, total, classification: this.getClassification(vendor, time, total), reliable: totalReliable };
+    },
+
+    /**
+     * 산술 후보군 생성 (디지털 스무딩)
+     */
+    getArithmeticCandidates(it) {
+        const alt = (num) => {
+            const s = num.toString();
+            // 흔한 오인식: 8<->3, 0<->9, 1<->7
+            const maps = {'8':'3', '3':'8', '0':'9', '9':'0', '1':'7', '7':'1'};
+            let variants = [s];
+            for (let i = 0; i < s.length; i++) {
+                if (maps[s[i]]) {
+                    variants.push(s.substring(0, i) + maps[s[i]] + s.substring(i + 1));
+                }
+            }
+            return variants.map(v => parseInt(v));
+        };
+
+        const uPrices = alt(it.unitPrice);
+        const qtys = alt(it.qty);
+        const amounts = alt(it.amount);
+
+        for (let u of uPrices) {
+            for (let q of qtys) {
+                for (let a of amounts) {
+                    if (u * q === a && a > 100) return { unitPrice: u, qty: q, amount: a };
+                }
+            }
+        }
+        return null;
     },
 
     autoCategorize(name) {
@@ -333,14 +386,25 @@ const App = {
         document.getElementById('scanApprovalNo').innerText = data.approvalNo;
         document.getElementById('scanClassification').innerText = data.classification;
 
+        // Reliability Indicator
+        const statusEl = document.getElementById('scanStatusBadge');
+        if (statusEl) {
+            statusEl.innerHTML = data.reliable ? 
+                '<span class="badge badge-success"><i data-lucide="check-circle-2"></i> 정밀 검산 완료</span>' : 
+                '<span class="badge badge-warning"><i data-lucide="alert-triangle"></i> 수치 확인 필요</span>';
+        }
+
         // Table
         const tbody = document.getElementById('scanTableBody');
         tbody.innerHTML = data.items.map((it, idx) => `
-            <tr>
+            <tr class="${it.verified ? 'row-verified' : 'row-error'} ${it.autoCorrected ? 'row-corrected' : ''}">
                 <td data-label="품목명"><input type="text" value="${it.name}" onchange="App.updateScanItem(${idx}, 'name', this.value)"></td>
                 <td data-label="수량"><input type="number" value="${it.qty}" style="width: 50px;" onchange="App.updateScanItem(${idx}, 'qty', this.value)"></td>
                 <td data-label="단가"><input type="number" value="${it.unitPrice}" onchange="App.updateScanItem(${idx}, 'unitPrice', this.value)"></td>
-                <td data-label="총금액" style="text-align: right; font-weight: 700;">₩${it.amount.toLocaleString()}</td>
+                <td data-label="총금액" style="text-align: right; font-weight: 700;">
+                    ₩${it.amount.toLocaleString()}
+                    ${it.verified ? '<i class="status-icon icon-ok" data-lucide="badge-check"></i>' : '<i class="status-icon icon-warn" data-lucide="info"></i>'}
+                </td>
             </tr>
         `).join('');
 

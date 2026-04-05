@@ -24,7 +24,7 @@
             <div class="nav-brand">
                 <div class="logo">
                     <i data-lucide="brain-circuit"></i>
-                    <span>PUB AI <small style="font-size: 0.6rem; opacity: 0.7; vertical-align: super; color: var(--accent-gold);">v5.0.3 ELITE</small></span>
+                    <span>PUB AI <small style="font-size: 0.6rem; opacity: 0.7; vertical-align: super; color: var(--accent-gold);">v5.1 ELITE</small></span>
                 </div>
             </div>
             <ul class="nav-links">
@@ -169,7 +169,10 @@
                 <!-- 1. Business Header -->
                 <div class="receipt-header-card">
                     <div class="biz-info">
-                        <h3 id="scanVendor">가맹점명 로딩 중...</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <h3 id="scanVendor" style="margin:0;">가맹점명 로딩 중...</h3>
+                            <div id="scanStatusBadge"></div>
+                        </div>
                         <p>사업자번호: <span id="scanBizId">-</span></p>
                         <p id="scanAddress">주소 정보 로딩 중...</p>
                     </div>

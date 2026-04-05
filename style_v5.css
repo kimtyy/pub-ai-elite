@@ -403,6 +403,22 @@ h1, h2, h3, h4, .logo {
 .btn-gold { background: linear-gradient(135deg, #ffbd00, #ff8c00); color: #000; box-shadow: 0 10px 20px rgba(255, 189, 0, 0.2); }
 .btn-cyan { background: var(--accent-cyan); color: #000; }
 
+/* OCR v5.1 Verification UI */
+.badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; }
+.badge-success { background: rgba(57, 255, 20, 0.1); color: var(--accent-green); border: 1px solid rgba(57, 255, 20, 0.2); }
+.badge-warning { background: rgba(255, 189, 0, 0.1); color: var(--accent-gold); border: 1px solid rgba(255, 189, 0, 0.2); }
+
+.row-verified td { border-left: 3px solid var(--accent-green) !important; background: rgba(57, 255, 20, 0.02); }
+.row-error td { border-left: 3px solid #ff4d4d !important; background: rgba(255, 77, 77, 0.02); }
+.row-corrected td { background: rgba(255, 189, 0, 0.05); }
+
+.status-icon { font-size: 1rem; margin-left: 8px; vertical-align: middle; }
+.icon-ok { color: var(--accent-green); }
+.icon-warn { color: #ff4d4d; }
+
+.elite-table tr { transition: all 0.3s; }
+.row-error input { color: #ff4d4d; font-weight: 700; border-bottom: 1px dashed #ff4d4d; }
+
 /* Mobile */
 @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .main-grid { grid-template-columns: 1fr; } }
 @media (max-width: 768px) {

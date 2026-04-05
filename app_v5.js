@@ -188,10 +188,8 @@ const App = {
     },
 
     preprocessImage(canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.filter = 'grayscale(1) contrast(1.5) brightness(1.1)';
-        ctx.drawImage(canvas, 0, 0);
-        ctx.filter = 'none';
+        // v8.2.6 Adjustment: Google Vision API often performs better on raw high-res images.
+        // We'll keep it raw for maximum extraction fidelity.
     },
 
     async runOCR(imgData) {
@@ -334,25 +332,59 @@ const App = {
     },
 
     parseReceipt(text) {
-        console.log("📄 Raw OCR Text:", text);
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        console.log("📄 High-Res OCR Analysis Start...");
+        if (!text) return { vendor: "정보 미식별", items: [], total: 0, classification: "기타" };
+        
+        const lines = text.split('\n').map(l => l.trim().replace(/[,]/g, '')).filter(l => l.length > 1);
+        
+        // 1. Intelligent Vendor Search (v8.2.7)
         let vendor = "공급처 불명";
-        for (let i = 0; i < Math.min(10, lines.length); i++) {
-            if (lines[i].match(/마트|식당|본점|상사|상점|나라|테크|식품|코리아|푸드|물산/)) {
-                vendor = lines[i].replace(/[<>\[\]\(\)*]/g, '').trim(); break; 
+        const bizKeywords = /유통|공급|식당|본점|상사|마트|상점|나라|테크|식품|코리아|푸드|물산|컴퍼니|농산|정육|수산/;
+        const headers = /영수증|신용카드|매출|전표|승인|일자|번호|주소|사업자/;
+
+        // Try searching top 8 lines
+        for (let i = 0; i < Math.min(8, lines.length); i++) {
+            if (lines[i].match(bizKeywords) && !lines[i].match(headers)) {
+                vendor = lines[i].replace(/[<>\[\]\(\)*]/g, '').trim();
+                break;
             }
         }
-        const items = []; let detectedTotal = 0;
+        // Fallback: If no keyword, take the 1st or 2nd line if it's substantial
+        if (vendor === "공급처 불명" && lines.length > 0) {
+            vendor = lines[0].match(headers) ? (lines[1] || lines[0]) : lines[0];
+        }
+
+        // 2. Resilient Item & Price Extraction
+        const items = [];
+        let detectedTotal = 0;
+        
         lines.forEach(line => {
-            const am = line.match(/([0-9,]{4,10})/);
-            if (line.match(/합\s*계|총\s*액|TOTAL/i) && am) detectedTotal = Math.max(detectedTotal, parseInt(am[1].replace(/,/g, '')));
-            const m = line.match(/(.+?)\s+(\d+)\s+([0-9,]+)/);
-            if (m && !line.match(/사업자|번호|주소/)) items.push({ name: m[1].trim(), qty: parseInt(m[2]), unitPrice: parseInt(m[3].replace(/,/g, '')) });
+            // Price pattern: digits at the end of a line
+            const prices = line.match(/(\d{3,8})$|(\d{3,8})\s/g);
+            if (prices) {
+                const lastPrice = parseInt(prices[prices.length - 1]);
+                if (lastPrice > 100) {
+                    if (line.match(/합계|총액|TOTAL|결제|금액|받은돈/i)) {
+                        detectedTotal = Math.max(detectedTotal, lastPrice);
+                    } else if (items.length < 15 && !line.match(headers)) {
+                        const name = line.replace(/\d+/g, '').replace(/[^\w가-힣\s]/g, '').trim();
+                        if (name.length > 1) {
+                            items.push({ name: name, qty: 1, unitPrice: lastPrice });
+                        }
+                    }
+                }
+            }
         });
-        return { 
-            vendor, items: items.slice(0, 15), total: detectedTotal,
-            classification: text.match(/마트|편의점/) ? '소모품' : (text.match(/식당|음식/) ? '식자재' : '기타')
-        };
+
+        // 3. Fallback for Total (Sum of items if no keyword found)
+        if (detectedTotal === 0 && items.length > 0) {
+            detectedTotal = items.reduce((a, b) => a + b.unitPrice, 0);
+        }
+
+        // 4. Auto Categorization
+        const classification = text.match(/마트|공급|유통|농산|수산|도매/) ? '식자재' : (text.match(/식당|음식|커피|카페/) ? '식자재' : '기타');
+
+        return { vendor, items, total: detectedTotal, classification };
     },
 
     initDashboard() {

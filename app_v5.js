@@ -277,7 +277,7 @@ const App = {
         const container = document.getElementById('verifyItemsContainer');
         if (!container) return;
         
-        // v8.2.18 Elite Layout: Right-Aligned Numbers
+        // v8.2.19 Elite Layout: Perfect Right-Aligned Numbers
         container.style.overflowX = "hidden";
         
         const headerHtml = `
@@ -290,8 +290,8 @@ const App = {
             <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 35px 75px 85px; align-items:center; gap:6px; margin-bottom:8px; padding:8px 6px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:0.85rem;">
                 <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff; width:100\%; font-size:0.85rem; overflow-x:auto;" onchange="App.currentScanData.items[${idx}].name=this.value">
                 <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
-                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:right; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
-                <span style="text-align:right; font-weight:800; color:var(--accent-magenta); font-size:0.8rem; white-space:nowrap;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
+                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:right; width:100\%; font-size:0.8rem; padding-right:4px;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
+                <span style="text-align:right; font-weight:800; color:var(--accent-magenta); font-size:0.8rem; white-space:nowrap; padding-right:4px;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
             </div>
         `).join('') : '<p style="color:var(--text-dim); text-align:center; padding:20px;">품목 인식 실패</p>');
         
@@ -372,30 +372,43 @@ const App = {
         
         lines.forEach(line => {
             if (line.match(/^\d{10,14}$/)) return;
-            // v8.2.18 Robust Footer & Header Filter
-            if (line.match(/합계|합 계|과세|부가세|받은돈|카드|신용|결제|총액|공급|세액|전표|번호|일시|시간|보관|판매|매출|대표|전화|담당|사업/)) return;
+            // v8.2.19 Elite Filter: Handle spaces in footer keywords
+            if (line.match(/합\s*계|과\s*세|부\s*가|받\s*은|카\s*드|신\s*용|총\s*액|세\s*액|공\s*급|미\s*수|전\s*화|대\s*표|전\s*표|번\s*호|일\s*시/)) return;
 
-            // 1. Try Splitting by Multiple Spaces (v8.2.18 4-Column Support)
-            const cols = line.split(/\s{2,}/).filter(c => c.length > 0);
-            if (cols.length >= 3) {
-                const namePart = cols[0].replace(/[^\w가-힣\s]/g, '').replace(/\d+$/, '').trim();
-                const priceVal = parseInt(cols[1].replace(/,/g, ''));
-                let qtyVal = parseInt(cols[2]) || 1;
-                
-                if (priceVal > 100 && namePart.length > 1) {
-                    items.push({ name: namePart, qty: qtyVal, unitPrice: priceVal });
-                    return;
+            // v8.2.19 Elite Structural Reverse-Parsing
+            const words = line.replace(/,/g, '').split(/\s+/);
+            const nums = words.filter(w => /^\d+$/.test(w) && w.length < 10).map(n => parseInt(n));
+            
+            if (nums.length >= 2) {
+                // The right-most is total, next left is qty (usually small), next left is unit price
+                const total = nums[nums.length - 1];
+                let qty = 1;
+                let unitPrice = total;
+                let priceAnchor = words.lastIndexOf(total.toString());
+
+                if (nums.length >= 3) {
+                    const candidateQty = nums[nums.length - 2];
+                    const candidatePrice = nums[nums.length - 3];
+                    if (candidateQty < 100 && candidatePrice >= 100) {
+                        qty = candidateQty;
+                        unitPrice = candidatePrice;
+                        priceAnchor = words.lastIndexOf(candidatePrice.toString());
+                    }
+                } else if (nums.length === 2) {
+                    // Could be UnitPrice Qty or UnitPrice Total
+                    const first = nums[0];
+                    const second = nums[1];
+                    if (first > 100 && second < 100) { unitPrice = first; qty = second; }
+                    priceAnchor = words.indexOf(unitPrice.toString());
                 }
-            }
 
-            // 2. Fallback: Smart Split (Keep for single-space lines)
-            const matches = line.replace(/,/g, '').match(/(\d{4,10})/g);
-            if (matches) {
-                let val = parseInt(matches[0]);
-                let rawName = line.split(matches[0])[0].trim();
-                if (val > 100 && val < 5000000) {
-                    let name = rawName.replace(/[^\w가-힣\s]/g, '').trim();
-                    if (name.length > 1) items.push({ name: name, qty: 1, unitPrice: val });
+                if (unitPrice > 100) {
+                    // Name is everything before the first price-like number
+                    let name = words.slice(0, priceAnchor).join(' ').replace(/[^\w가-힣\s]/g, '').trim();
+                    name = name.replace(/[\d]$/, '').trim(); // Remove terminal qty digit if joined
+                    if (name.length > 1) {
+                        items.push({ name: name, qty: qty, unitPrice: unitPrice });
+                    }
                 }
             }
         });

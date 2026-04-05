@@ -174,8 +174,45 @@ const App = {
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0);
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        
+        // v5.2 초정밀 전처리 엔진 가동
+        this.preprocessImage(canvas);
+        
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         this.runOCR(imgData);
+    },
+
+    /**
+     * OCR v5.2 이미지 전처리 모듈 (Binarization & Contrast)
+     */
+    preprocessImage(canvas) {
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // 1. 캔버스 필터를 통한 기본 보정 (회색기 제거 및 강조)
+        ctx.filter = 'grayscale(1) contrast(1.8) brightness(1.1) sharp(2)';
+        ctx.drawImage(canvas, 0, 0);
+        ctx.filter = 'none';
+
+        // 2. 픽셀 단위 정밀 이진화 (Adaptive Binarization 필터링 소환)
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const pixels = imgData.data;
+        
+        // 평균 밝기 계산
+        let total = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+            total += pixels[i];
+        }
+        const avg = total / (pixels.length / 4);
+        const threshold = avg * 0.95; // 배경 노이즈 제거를 위한 문턱값 조정
+
+        for (let i = 0; i < pixels.length; i += 4) {
+            const v = (pixels[i] > threshold) ? 255 : 0;
+            pixels[i] = pixels[i + 1] = pixels[i + 2] = v; // 완전한 흑백 전환
+        }
+        ctx.putImageData(imgData, 0, 0);
+        console.log("💎 KODARI v5.2 이미지 전처리 완료 (Threshold:", threshold.toFixed(1), ")");
     },
 
     runOCR(imgData) {

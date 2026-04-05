@@ -212,11 +212,6 @@ const App = {
             this.currentScanData = parsed || { vendor: "정보 없음", items: [], total: 0 };
             
             if(statusText) statusText.innerText = "분석 완료! 화면 전환 중...";
-            console.log("DEBUG: OCR Success, calling openVerificationCenter...");
-            
-            // Debug Alert to confirm flow reached here
-            alert("🎯 분석이 성공적으로 완료되었습니다! 검증 화면(Modal)으로 전환을 시도합니다.");
-            
             this.openVerificationCenter(imgData, this.currentScanData);
         } catch (err) {
             console.error("OCR API Error:", err);
@@ -230,20 +225,20 @@ const App = {
      */
     openVerificationCenter(imgData, data) {
         data = data || { vendor: "정보 미식별", items: [], total: 0 };
-        console.log("🛠 Final Verification Center Call with:", data);
-        alert("🖼️ 검증 모달을 렌더링하고 있습니다. (Vendor: " + data.vendor + ")");
         
         try {
-            // Force reset modals
+            // 1. Force reset and show Overlay
             document.querySelectorAll('.modal-overlay').forEach(o => o.style.display = 'none');
             
             const m = document.getElementById('verifyModal');
-            if (!m) {
-                alert("시스템 오류: verifyModal을 찾을 수 없습니다.");
-                return;
-            }
+            if (!m) return;
             m.style.display = 'grid';
 
+            // 2. IMPORTANT: Force inner modal to show (fixes Black Screen)
+            const innerModal = m.querySelector('.modal');
+            if (innerModal) innerModal.style.display = 'block';
+
+            // 3. Render Image
             const canvas = document.getElementById('verifyCanvas');
             if (canvas && imgData) {
                 const ctx = canvas.getContext('2d');
@@ -255,7 +250,7 @@ const App = {
                 img.src = imgData;
             }
 
-            // Defensive ID lookup before setting
+            // 4. Fill Data
             const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
             setVal('verifyVendor', data.vendor || "가맹점 정보 없음");
             
@@ -265,8 +260,7 @@ const App = {
             
             if (typeof lucide !== 'undefined') lucide.createIcons();
         } catch (err) {
-            console.error("🔥 Re-entry Crash avoided:", err);
-            // Even if something fails, make sure the modal is visible
+            console.error("🔥 Render Crash avoided:", err);
             const m = document.getElementById('verifyModal');
             if(m) m.style.display = 'grid';
         }

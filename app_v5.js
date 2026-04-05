@@ -277,21 +277,21 @@ const App = {
         const container = document.getElementById('verifyItemsContainer');
         if (!container) return;
         
-        // v8.2.13 Center Aligned Layout with Full Labels
+        // v8.2.14 Ultra-Wide Name Column Layout
         container.style.overflowX = "hidden";
         
         const headerHtml = `
-            <div style="display:grid; grid-template-columns: 1fr 40px 80px 90px; align-items:center; gap:6px; padding:10px 8px; margin-bottom:5px; font-size:0.75rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
-                <div>품명</div><div>수량</div><div>단가</div><div>금액</div>
+            <div style="display:grid; grid-template-columns: 1fr 30px 65px 75px; align-items:center; gap:4px; padding:10px 4px; margin-bottom:5px; font-size:0.7rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
+                <div style="text-align:left; padding-left:10px;">품명</div><div>수량</div><div>단가</div><div>금액</div>
             </div>
         `;
         
         container.innerHTML = headerHtml + (items.length > 0 ? items.map((it, idx) => `
-            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 40px 80px 90px; align-items:center; gap:6px; margin-bottom:8px; padding:8px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:0.85rem;">
+            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 30px 65px 75px; align-items:center; gap:4px; margin-bottom:8px; padding:8px 4px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:0.8rem;">
                 <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff; width:100\%; font-size:0.8rem; overflow-x:auto;" onchange="App.currentScanData.items[${idx}].name=this.value">
-                <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
-                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:center; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
-                <span style="text-align:center; font-weight:800; color:var(--accent-magenta); font-size:0.8rem; white-space:nowrap;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
+                <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center; width:100\%; font-size:0.75rem;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
+                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:center; width:100\%; font-size:0.75rem;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
+                <span style="text-align:center; font-weight:800; color:var(--accent-magenta); font-size:0.75rem; white-space:nowrap;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
             </div>
         `).join('') : '<p style="color:var(--text-dim); text-align:center; padding:20px;">품목 인식 실패</p>');
         
@@ -371,16 +371,22 @@ const App = {
         let detectedTotal = 0;
         
         lines.forEach(line => {
+            // v8.2.15: Skip dedicated barcode lines (10+ digits)
+            if (line.match(/^\d{10,14}$/)) return;
+
+            // Extract price candidates (4+ digits)
             const matches = line.replace(/,/g, '').match(/(\d{4,10})/g);
             if (matches) {
-                const val = Math.max(...matches.map(m => parseInt(m)));
+                const val = parseInt(matches[0]); // v8.2.15: Pick the FIRST large number as unit price
                 if (val > 100 && val < 5000000) {
                     if (line.match(/합계|총액|TOTAL|결제|금액|받은돈|합 계/i)) {
                         detectedTotal = Math.max(detectedTotal, val);
                     } else if (items.length < 15 && !line.match(/전화|사업|일자|승인|대표|주소|가액|세액|전표|번호|출력|일시|시간|매장/)) {
-                        let name = line.replace(/[\d,]{4,}/g, '').replace(/[^\w가-힣\s\(\)]/g, '').trim();
-                        // v8.2.13 Enhancement: Deep name cleaning
-                        name = name.replace(/\s\d+$/, '').replace(/\(\s*\)$/, '').replace(/[\(\)\[\]]/g, '').trim();
+                        // Extract name by taking everything BEFORE the first price
+                        let rawName = line.split(matches[0])[0].trim();
+                        // v8.2.15: Elite Clean - Remove terminal numbers/noise from name
+                        let name = rawName.replace(/[^\w가-힣\s]/g, '').replace(/[\d]$/, '').trim();
+                        
                         if (name.length > 1 && !name.match(/전표|번호|출력|보관|감사/)) {
                             items.push({ name: name, qty: 1, unitPrice: val });
                         }

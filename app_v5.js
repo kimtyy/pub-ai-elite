@@ -44,11 +44,12 @@ const App = {
             const ds = date.toISOString().split('T')[0];
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             const sale = Math.floor(700000 + Math.random() * 500000 + (isWeekend ? 400000 : 0));
-            this.db.sales.push({ date: ds, amount: sale, type: 'SALE' });
+            this.db.sales.push({ id: 's' + Date.now() + i, date: ds, amount: sale, type: 'SALE' });
             
             if (i % 3 === 0) {
                 const c = categories[i % categories.length];
                 this.db.purchases.push({ 
+                    id: 'p' + Date.now() + i,
                     date: ds, 
                     vendor: '공급협력사 ' + (i%5), 
                     amount: Math.floor(200000 + Math.random() * 300000), 
@@ -369,8 +370,27 @@ const App = {
     updateManagerBriefing(ma5, ma20, ma120) {
         const el = document.getElementById('trendInsight'); if (!el) return;
         const cur5 = ma5[ma5.length-1]; const cur20 = ma20[ma20.length-1];
-        let diag = cur5 > cur20 ? "현재 상승 <span style='color:var(--accent-cyan)'>골든크로스</span> 상태입니다. 공격적인 운영을 추천합니다." : "현재 흐름이 정체된 <span style='color:var(--accent-magenta)'>데드크로스</span> 구간입니다.";
+        const cur120 = ma120[ma120.length-1];
+        
+        // 1. Core Diagnosis
+        let diag = cur5 > cur20 ? 
+            "현재 단기 성장이 뚜렷한 <span style='color:var(--accent-cyan)'>골든크로스</span> 상태입니다. 공격적인 마케팅과 재고 확보를 추천합니다." : 
+            "현재 단기 성장이 완만한 <span style='color:var(--accent-magenta)'>조정 구간</span>입니다. 안정적인 현금 흐름 확보에 집중하세요.";
+        
+        if (cur20 > cur120) diag += " 장기적으로는 매우 탄탄한 성장세를 유지하고 있습니다.";
         el.innerHTML = `<strong>💼 경영 진단:</strong> ${diag}`;
+
+        // 2. Metrics Linkage (index.html 연동)
+        const profitability = (cur5 / cur120 * 100).toFixed(1);
+        const pEl = document.getElementById('m-profitability');
+        if (pEl) pEl.innerText = profitability > 100 ? `${profitability}% (우수)` : `${profitability}% (정체)`;
+        
+        const gEl = document.getElementById('m-grade');
+        if (gEl) {
+            let grade = profitability > 110 ? 'AAA' : (profitability > 90 ? 'AA' : 'A');
+            gEl.innerText = grade;
+            gEl.style.color = grade === 'AAA' ? 'var(--accent-gold)' : 'var(--accent-cyan)';
+        }
     },
 
     generateExecutiveReport() {

@@ -277,15 +277,18 @@ const App = {
         const container = document.getElementById('verifyItemsContainer');
         if (!container) return;
         
-        // v8.2.9 Header Row
+        // v8.2.11 Wide Horizontal Scroll Layout for Mobile
+        container.style.overflowX = "auto";
+        container.style.webkitOverflowScrolling = "touch";
+        
         const headerHtml = `
-            <div style="display:grid; grid-template-columns: 1fr 35px 70px 75px; align-items:center; gap:6px; padding:10px 12px; margin-bottom:5px; font-size:0.75rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
-                <div>품명</div><div>수량</div><div>단가</div><div style="text-align:right;">금액</div>
+            <div style="display:grid; grid-template-columns: 200px 40px 80px 100px; min-width:450px; align-items:center; gap:8px; padding:10px 12px; margin-bottom:5px; font-size:0.75rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
+                <div>품명</div><div>수</div><div>단가</div><div style="text-align:right;">금액</div>
             </div>
         `;
         
         container.innerHTML = headerHtml + (items.length > 0 ? items.map((it, idx) => `
-            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 35px 70px 75px; align-items:center; gap:6px; margin-bottom:10px; padding:12px; background:rgba(255,255,255,0.03); border-radius:10px;">
+            <div class="scanned-item-row" style="display:grid; grid-template-columns: 200px 40px 80px 100px; min-width:450px; align-items:center; gap:8px; margin-bottom:10px; padding:12px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid rgba(255,255,255,0.05);">
                 <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff;" onchange="App.currentScanData.items[${idx}].name=this.value">
                 <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
                 <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:right;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
@@ -341,41 +344,44 @@ const App = {
     },
 
     parseReceipt(text) {
-        console.log("📄 v8.2.8 High-Precision Parsing...");
+        console.log("📄 v8.2.10 High-Precision Parsing...");
         if (!text) return { vendor: "정보 미식별", items: [], total: 0, classification: "기타" };
         
-        // Clean text but keep digits and commas for price extraction
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
         
-        // 1. Vendor Lookup (Improved for Distribution/Wholesale)
         let vendor = "공급처 불명";
         const bizKeywords = /유통|공급|식당|본점|상사|마트|상점|나라|테크|식품|코리아|푸드|물산|컴퍼니|농산|정육|수산/;
         const headers = /영수증|신용카드|매출|전표|승인|일자|번호|주소|사업자|대표|전화/;
 
-        for (let i = 0; i < Math.min(8, lines.length); i++) {
-            if (lines[i].match(bizKeywords) && !lines[i].match(/대표|전화|사업/)) {
-                vendor = lines[i].replace(/[<>\[\]\(\)*]/g, '').trim();
+        // v8.2.10: Korean-Prioritized Search
+        for (let i = 0; i < Math.min(10, lines.length); i++) {
+            const line = lines[i];
+            // Exclude common short English artifacts like "Eat"
+            if (line.match(bizKeywords) && !line.match(/대표|전화|사업/) && line.match(/[가-힣]/)) {
+                vendor = line.replace(/[<>\[\]\(\)*]/g, '').trim();
                 break;
             }
         }
         if (vendor === "공급처 불명" && lines.length > 0) {
-            vendor = lines[0].match(/영수증|매출/) ? (lines[1] || lines[0]) : lines[0];
+            // Pick the first line that contains Korean, if possible
+            const korLine = lines.find(l => l.match(/[가-힣]{2,}/) && !l.match(headers));
+            vendor = korLine || lines[0];
         }
 
         const items = [];
         let detectedTotal = 0;
         
         lines.forEach(line => {
-            // Price Discovery: Look for the LARGEST number at the middle or end of the line
             const matches = line.replace(/,/g, '').match(/(\d{4,10})/g);
             if (matches) {
                 const val = Math.max(...matches.map(m => parseInt(m)));
                 if (val > 100 && val < 5000000) {
                     if (line.match(/합계|총액|TOTAL|결제|금액|받은돈|합 계/i)) {
                         detectedTotal = Math.max(detectedTotal, val);
-                    } else if (items.length < 15 && !line.match(/전화|사업|일자|승인|대표|주소/)) {
-                        // Extract name by removing the price and other digits
+                    } else if (items.length < 15 && !line.match(/전화|사업|일자|승인|대표|주소|가액|세액/)) {
                         let name = line.replace(/[\d,]{4,}/g, '').replace(/[^\w가-힣\s\(\)]/g, '').trim();
+                        // Clean up trailing noise like "(2k) 1"
+                        name = name.replace(/\s\d+$/, '').replace(/\(\s*\)$/, '').trim();
                         if (name.length > 1) {
                             items.push({ name: name, qty: 1, unitPrice: val });
                         }
@@ -389,7 +395,6 @@ const App = {
         }
 
         const classification = text.match(/마트|공급|유통|농산|수산|도매/) ? '식자재' : (text.match(/식당|음식|커피|카페/) ? '식자재' : '기타');
-
         return { vendor, items, total: detectedTotal, classification };
     },
 

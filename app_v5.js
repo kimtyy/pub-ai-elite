@@ -99,14 +99,13 @@ const App = {
         const nav = document.querySelector(`.nav-links li[data-tab="${tabName}"]`);
         if (nav) nav.classList.add('active');
 
-        // FAB Display Logic
+        // FAB Display Logic: GONE on scan tab, PLUS icon on others
         const fab = document.querySelector('.fab-btn');
         if (fab) {
             if (tabName === 'scan') {
-                fab.classList.add('scan-mode');
-                fab.innerHTML = '<i data-lucide="camera"></i>';
+                fab.style.display = 'none';
             } else {
-                fab.classList.remove('scan-mode');
+                fab.style.display = 'grid';
                 fab.innerHTML = '<i data-lucide="plus"></i>';
             }
             if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -219,9 +218,14 @@ const App = {
      * v6.0 Verification Center (Side-by-Side Review)
      */
     openVerificationCenter(imgData, data) {
+        // Essential: Close all other modals first to reset overlay state
         this.closeModal();
+        
         const m = document.getElementById('verifyModal');
-        if (m) m.style.display = 'grid';
+        if (m) {
+            m.style.display = 'grid';
+            m.classList.add('active'); // CSS hook for animations
+        }
         
         const canvas = document.getElementById('verifyCanvas');
         const ctx = canvas.getContext('2d');
@@ -233,8 +237,8 @@ const App = {
         img.src = imgData;
 
         document.getElementById('verifyVendor').value = data.vendor || "가맹점 정보 없음";
-        this.setVerifyType(data.classification === '식자재' ? 'PURCHASE' : 'PURCHASE');
-        this.renderVerifyItems(data.items);
+        this.setVerifyType('PURCHASE');
+        this.renderVerifyItems(data.items || []);
         this.updateVerifySummary();
     },
 

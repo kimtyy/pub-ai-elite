@@ -5,8 +5,8 @@
 
 const App = {
     db: {
-        purchases: JSON.parse(localStorage.getItem('pub_purchases')) || [],
-        sales: JSON.parse(localStorage.getItem('pub_sales')) || [],
+        purchases: (function() { try { return JSON.parse(localStorage.getItem('pub_purchases')) || []; } catch(e) { return []; } })(),
+        sales: (function() { try { return JSON.parse(localStorage.getItem('pub_sales')) || []; } catch(e) { return []; } })(),
     },
     charts: {},
     weather: 'sunny',
@@ -17,13 +17,21 @@ const App = {
     init() {
         console.log("💎 PUB AI v5.0 OCR ELITE Booting...");
         try {
+            // 1. Core Logic Setup
             this.generateMockData();
+            
+            // 2. UI Bindings (Run first to ensure buttons work even if data fails)
             this.bindEvents();
+            
+            // 3. Data Rendering
             this.renderGlobalStats();
             this.switchTab('dashboard');
+            
             if (typeof lucide !== 'undefined') lucide.createIcons();
+            console.log("✅ v5.0 Boot Success");
         } catch (e) {
             console.error("🔥 v5.0 Boot Error:", e);
+            // alert("시스템 초기화 중 오류가 발생했습니다. 브라우저 캐시를 삭제하거나 다시 시도해 주세요.");
         }
     },
 

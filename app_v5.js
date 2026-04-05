@@ -208,11 +208,16 @@ const App = {
             const data = await response.json();
             if (!data.success) throw new Error(data.details || 'OCR 분석 실패');
 
-            const parsed = this.parseReceipt(data.fullText);
-            this.currentScanData = parsed;
+            const parsed = this.parseReceipt(data.fullText || "");
+            this.currentScanData = parsed || { vendor: "정보 없음", items: [], total: 0 };
             
-            if(statusText) statusText.innerText = "분석 완료!";
-            setTimeout(() => this.openVerificationCenter(imgData, parsed), 500);
+            if(statusText) statusText.innerText = "분석 완료! 화면 전환 중...";
+            console.log("DEBUG: OCR Success, calling openVerificationCenter...");
+            
+            // Debug Alert to confirm flow reached here
+            alert("🎯 분석이 성공적으로 완료되었습니다! 검증 화면(Modal)으로 전환을 시도합니다.");
+            
+            this.openVerificationCenter(imgData, this.currentScanData);
         } catch (err) {
             console.error("OCR API Error:", err);
             alert(`AI 분석 오류: ${err.message}`);
@@ -224,22 +229,23 @@ const App = {
      * v6.0 Verification Center (Side-by-Side Review)
      */
     openVerificationCenter(imgData, data) {
-        console.log("🛠 Opening Verification Center with data:", data);
+        data = data || { vendor: "정보 미식별", items: [], total: 0 };
+        console.log("🛠 Final Verification Center Call with:", data);
+        alert("🖼️ 검증 모달을 렌더링하고 있습니다. (Vendor: " + data.vendor + ")");
+        
         try {
-            // Reset modal states safely
+            // Force reset modals
             document.querySelectorAll('.modal-overlay').forEach(o => o.style.display = 'none');
             
             const m = document.getElementById('verifyModal');
-            if (m) {
-                m.style.display = 'grid';
-            } else {
-                console.error("verifyModal element not found!");
-                alert("검증 화면을 찾을 수 없습니다 (ID: verifyModal).");
+            if (!m) {
+                alert("시스템 오류: verifyModal을 찾을 수 없습니다.");
                 return;
             }
+            m.style.display = 'grid';
 
             const canvas = document.getElementById('verifyCanvas');
-            if (canvas) {
+            if (canvas && imgData) {
                 const ctx = canvas.getContext('2d');
                 const img = new Image();
                 img.onload = () => {
@@ -249,19 +255,20 @@ const App = {
                 img.src = imgData;
             }
 
-            // Fill Data
-            const vendorInput = document.getElementById('verifyVendor');
-            if(vendorInput) vendorInput.value = data.vendor || "가맹점 정보 없음";
+            // Defensive ID lookup before setting
+            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+            setVal('verifyVendor', data.vendor || "가맹점 정보 없음");
             
             this.setVerifyType('PURCHASE');
             this.renderVerifyItems(data.items || []);
             this.updateVerifySummary();
             
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            console.log("✅ Verification Center successfully opened");
         } catch (err) {
-            console.error("🔥 Error in openVerificationCenter:", err);
-            alert("검증 화면 로딩 중 오류가 발생했습니다: " + err.message);
+            console.error("🔥 Re-entry Crash avoided:", err);
+            // Even if something fails, make sure the modal is visible
+            const m = document.getElementById('verifyModal');
+            if(m) m.style.display = 'grid';
         }
     },
 

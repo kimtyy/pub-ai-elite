@@ -277,23 +277,21 @@ const App = {
         const container = document.getElementById('verifyItemsContainer');
         if (!container) return;
         
-        // v8.2.12 Fixed Numerical Columns Layout
-        container.style.overflowX = "hidden"; // No horizontal scroll for the whole row
+        // v8.2.13 Center Aligned Layout with Full Labels
+        container.style.overflowX = "hidden";
         
         const headerHtml = `
-            <div style="display:grid; grid-template-columns: 1fr 30px 65px 85px; align-items:center; gap:6px; padding:10px 8px; margin-bottom:5px; font-size:0.7rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
-                <div>품명</div><div>수</div><div>단가</div><div style="text-align:right;">금액</div>
+            <div style="display:grid; grid-template-columns: 1fr 40px 80px 90px; align-items:center; gap:6px; padding:10px 8px; margin-bottom:5px; font-size:0.75rem; color:var(--accent-gold); font-weight:800; text-align:center; border-bottom:1px solid rgba(255,215,0,0.2);">
+                <div>품명</div><div>수량</div><div>단가</div><div>금액</div>
             </div>
         `;
         
         container.innerHTML = headerHtml + (items.length > 0 ? items.map((it, idx) => `
-            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 30px 65px 85px; align-items:center; gap:6px; margin-bottom:8px; padding:8px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:0.85rem;">
-                <!-- Flexible Name with cursor scroll -->
-                <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff; width:100%; font-size:0.8rem; overflow-x:auto;" onchange="App.currentScanData.items[${idx}].name=this.value">
-                <!-- Fixed Numbers -->
+            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 40px 80px 90px; align-items:center; gap:6px; margin-bottom:8px; padding:8px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:0.85rem;">
+                <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff; width:100\%; font-size:0.8rem; overflow-x:auto;" onchange="App.currentScanData.items[${idx}].name=this.value">
                 <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
-                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:right; width:100%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
-                <span style="text-align:right; font-weight:800; color:var(--accent-magenta); font-size:0.8rem;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
+                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:center; width:100\%; font-size:0.8rem;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
+                <span style="text-align:center; font-weight:800; color:var(--accent-magenta); font-size:0.8rem; white-space:nowrap;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
             </div>
         `).join('') : '<p style="color:var(--text-dim); text-align:center; padding:20px;">품목 인식 실패</p>');
         
@@ -379,11 +377,11 @@ const App = {
                 if (val > 100 && val < 5000000) {
                     if (line.match(/합계|총액|TOTAL|결제|금액|받은돈|합 계/i)) {
                         detectedTotal = Math.max(detectedTotal, val);
-                    } else if (items.length < 15 && !line.match(/전화|사업|일자|승인|대표|주소|가액|세액/)) {
+                    } else if (items.length < 15 && !line.match(/전화|사업|일자|승인|대표|주소|가액|세액|전표|번호|출력|일시|시간|매장/)) {
                         let name = line.replace(/[\d,]{4,}/g, '').replace(/[^\w가-힣\s\(\)]/g, '').trim();
-                        // Clean up trailing noise like "(2k) 1"
-                        name = name.replace(/\s\d+$/, '').replace(/\(\s*\)$/, '').trim();
-                        if (name.length > 1) {
+                        // v8.2.13 Enhancement: Deep name cleaning
+                        name = name.replace(/\s\d+$/, '').replace(/\(\s*\)$/, '').replace(/[\(\)\[\]]/g, '').trim();
+                        if (name.length > 1 && !name.match(/전표|번호|출력|보관|감사/)) {
                             items.push({ name: name, qty: 1, unitPrice: val });
                         }
                     }

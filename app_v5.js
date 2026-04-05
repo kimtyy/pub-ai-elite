@@ -371,26 +371,34 @@ const App = {
         let detectedTotal = 0;
         
         lines.forEach(line => {
-            // v8.2.15: Skip dedicated barcode lines (10+ digits)
             if (line.match(/^\d{10,14}$/)) return;
+            // v8.2.17 Super Robust Footer Filter
+            if (line.match(/합계|합 계|과세|부가세|받은돈|카드|신용|결제|총액|공급|세액|전표|번호|일시|시간|보관|판매|매출/)) return;
 
-            // Extract price candidates (4+ digits)
+            // 1. Try Splitting by Multiple Spaces (v8.2.17 Primary)
+            const cols = line.split(/\s{2,}/).filter(c => c.length > 0);
+            if (cols.length >= 2) {
+                const namePart = cols[0].replace(/[^\w가-힣\s]/g, '').replace(/\d+$/, '').trim();
+                const priceMatch = cols[1].replace(/,/g, '').match(/\d{4,10}/);
+                if (priceMatch && namePart.length > 1) {
+                    items.push({ name: namePart, qty: 1, unitPrice: parseInt(priceMatch[0]) });
+                    return; // Skip fallback if gap detection worked
+                }
+            }
+
+            // 2. Fallback: Smart Split (v8.2.16 Style)
             const matches = line.replace(/,/g, '').match(/(\d{4,10})/g);
             if (matches) {
-                const val = parseInt(matches[0]); // v8.2.15: Pick the FIRST large number as unit price
+                let val = parseInt(matches[0]);
+                let rawName = line.split(matches[0])[0].trim();
+                const concatMatch = rawName.match(/(\d+)$/);
+                if (concatMatch && val.toString().startsWith(concatMatch[0])) {
+                    val = parseInt(val.toString().slice(concatMatch[0].length));
+                    rawName = rawName.replace(/(\d+)$/, '').trim();
+                }
                 if (val > 100 && val < 5000000) {
-                    if (line.match(/합계|총액|TOTAL|결제|금액|받은돈|합 계/i)) {
-                        detectedTotal = Math.max(detectedTotal, val);
-                    } else if (items.length < 15 && !line.match(/전화|사업|일자|승인|대표|주소|가액|세액|전표|번호|출력|일시|시간|매장/)) {
-                        // Extract name by taking everything BEFORE the first price
-                        let rawName = line.split(matches[0])[0].trim();
-                        // v8.2.15: Elite Clean - Remove terminal numbers/noise from name
-                        let name = rawName.replace(/[^\w가-힣\s]/g, '').replace(/[\d]$/, '').trim();
-                        
-                        if (name.length > 1 && !name.match(/전표|번호|출력|보관|감사/)) {
-                            items.push({ name: name, qty: 1, unitPrice: val });
-                        }
-                    }
+                    let name = rawName.replace(/[^\w가-힣\s]/g, '').trim();
+                    if (name.length > 1) items.push({ name: name, qty: 1, unitPrice: val });
                 }
             }
         });

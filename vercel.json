@@ -3,11 +3,13 @@
   "name": "pub-ai-elite",
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
-    { "src": "style_v*.css", "use": "@vercel/static" },
-    { "src": "app_v*.js", "use": "@vercel/static" },
-    { "src": "manifest.json", "use": "@vercel/static" }
+    { "src": "style_v5.css", "use": "@vercel/static" },
+    { "src": "app_v5.js", "use": "@vercel/static" },
+    { "src": "manifest.json", "use": "@vercel/static" },
+    { "src": "api/ocr.js", "use": "@vercel/node" }
   ],
   "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],

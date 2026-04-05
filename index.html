@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PUB AI v5.0 | OCR ELITE Intelligence</title>
-    <link rel="stylesheet" href="style_v5.css">
+    <title>PUB AI v8.2 | OCR ELITE Intelligence</title>
+    <link rel="stylesheet" href="style_v5.css?v=8.2">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     
     <!-- PWA & Mobile Meta Tags -->
@@ -24,7 +24,7 @@
             <div class="nav-brand">
                 <div class="logo">
                     <i data-lucide="brain-circuit"></i>
-                    <span>PUB AI <small style="font-size: 0.6rem; opacity: 0.7; vertical-align: super; color: var(--accent-gold);">v5.2 ELITE</small></span>
+                    <span>PUB AI <small style="font-size: 0.6rem; opacity: 0.7; vertical-align: super; color: var(--accent-gold);">v8.2 ELITE</small></span>
                 </div>
             </div>
             <ul class="nav-links">
@@ -40,17 +40,19 @@
             <div id="section-dashboard" class="tab-content active">
                 <header class="main-header">
                     <div class="welcome">
-                        <h1>Expert AI 정산 시스템</h1>
-                        <div class="welcome-meta">
-                            <p>사장님만을 위한 지능형 경비 처리 비서입니다.</p>
+                        <div class="weather-briefing" id="weatherWidget">
+                            <i data-lucide="sun" class="weather-icon"></i>
+                            <span id="weatherText">오늘의 날씨: 맑음 (22°C)</span>
                         </div>
+                        <h1>경영진 전문 대시보드</h1>
+                        <p class="subtitle">5/20/60/120일 이평선 기반 지능형 경영 분석</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn btn-primary" id="addPurchaseBtn">
-                            <i data-lucide="plus"></i> 수동 입력
+                        <button class="btn btn-primary" onclick="App.openModal('purchaseModal')">
+                            <i data-lucide="edit-3"></i> 수동 정산
                         </button>
-                        <button class="btn btn-gold" id="scanReceiptBtn">
-                            <i data-lucide="sparkles"></i> 즉시 정산
+                        <button class="btn btn-gold" onclick="App.switchTab('scan')">
+                            <i data-lucide="camera"></i> 영수증 스캔
                         </button>
                     </div>
                 </header>
@@ -59,40 +61,78 @@
                 <section class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-info">
-                            <span class="label">이번 달 총 매출</span>
+                            <span class="label">이번 달 매출 총계</span>
                             <div class="amount" id="dash-sales">₩0</div>
+                            <div class="trend up"><i data-lucide="trending-up"></i> +4.2%</div>
                         </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-info">
-                            <span class="label">자동 인식 매입액</span>
+                            <span class="label">운영 경비 집행액</span>
                             <div class="amount" id="dash-purchase" style="color: var(--accent-magenta);">₩0</div>
+                            <div class="trend down"><i data-lucide="trending-down"></i> -1.5%</div>
                         </div>
                     </div>
                     <div class="stat-card premium">
                         <div class="stat-info">
-                            <span class="label">최근 24시간 스캔</span>
-                            <div class="amount" id="dash-bep">0건</div>
+                            <span class="label">추정 순이익</span>
+                            <div class="amount" id="dash-profit" style="color: var(--accent-green);">₩0</div>
+                            <div class="trend up"><i data-lucide="trending-up"></i> +8.1%</div>
                         </div>
-                        <i data-lucide="zap" style="position: absolute; right: 20px; top: 20px; color: var(--accent-gold); opacity: 0.5;"></i>
+                        <i data-lucide="activity" style="position: absolute; right: 20px; top: 20px; color: var(--accent-green); opacity: 0.5;"></i>
                     </div>
                 </section>
 
                 <div class="main-grid">
                     <div class="panel">
                         <div class="panel-header">
-                            <h2>AI 경영 인사이트</h2>
-                        </div>
-                        <!-- AI Strategy Card -->
-                        <div class="ai-strategy-card" style="margin-top: 0;">
-                            <div class="ai-header">
-                                <i data-lucide="cpu" style="width: 24px; height: 24px;"></i>
-                                <h3>코다리 부장 AI 경영 브리핑</h3>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <h2>매출 트렌드 분석 (금융 이평선 모델)</h2>
+                                <div class="chart-legend">
+                                    <span class="dot ma5"></span> 5일
+                                    <span class="dot ma20"></span> 20일
+                                    <span class="dot ma60"></span> 60일
+                                    <span class="dot ma120"></span> 120일
+                                </div>
                             </div>
-                            <p class="ai-insight-text" id="trendInsight">데이터 분석 및 보고 준비 중...</p>
+                        </div>
+                        <!-- Kodari Strategy Center (v7.0 Elite) -->
+                        <div class="kodari-strategy-center">
+                            <div class="strategy-header">
+                                <div class="ai-branding">
+                                    <div class="ai-avatar pulse-gold">
+                                        <i data-lucide="shield-check"></i>
+                                    </div>
+                                    <div class="ai-title">
+                                        <h3>코다리 부장의 경영 전략 브리핑</h3>
+                                        <span class="status-badge" id="aiStatus">Elite Engine Active</span>
+                                    </div>
+                                </div>
+                                <div class="strategy-metrics">
+                                    <div class="m-item">
+                                        <span class="m-label">수익성</span>
+                                        <span class="m-val" id="m-profitability">분석 중...</span>
+                                    </div>
+                                    <div class="m-item">
+                                        <span class="m-label">전략 등급</span>
+                                        <span class="m-val" id="m-grade" style="color: var(--accent-gold);">AAA</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="strategy-body">
+                                <div class="executive-content" id="trendInsight">
+                                    <div class="loading-insight">AI가 실시간 경영 데이터를 분석하고 있습니다...</div>
+                                </div>
+                            </div>
+                            <div class="strategy-footer">
+                                <button class="btn btn-ghost-gold" onclick="App.generateExecutiveReport()">
+                                    <i data-lucide="file-text"></i> 정밀 리포트 생성
+                                </button>
+                                <div id="weatherAdviceBadge" class="weather-advice-badge">전략 연동됨</div>
+                            </div>
                         </div>
                         
-                        <div class="chart-container" style="height: 250px; margin-top: 30px;">
+                        <div class="chart-container" style="height: 300px; margin-top: 20px;">
                             <canvas id="trendChart"></canvas>
                         </div>
                     </div>
@@ -240,18 +280,26 @@
                 <button class="close-btn" onclick="App.closeModal()">&times;</button>
             </header>
             <div class="modal-body">
-                <div class="form-group"><label>상품/품목명</label><input type="text" id="itemName"></div>
+                <div class="form-group"><label>상품/품목명</label><input type="text" id="itemName" placeholder="예: 가게 월세, 전기세 등" style="height:60px; font-size:1.1rem;"></div>
                 <div class="row">
-                    <div class="col"><label>단가</label><input type="number" id="unitPrice"></div>
-                    <div class="col"><label>수량</label><input type="number" id="qty"></div>
+                    <div class="col"><label>단가</label><input type="number" id="unitPrice" inputmode="numeric" style="height:60px; font-size:1.1rem;"></div>
+                    <div class="col"><label>수량</label><input type="number" id="qty" value="1" inputmode="numeric" style="height:60px; font-size:1.1rem;"></div>
                 </div>
                 <div class="form-group">
                     <label>카테고리</label>
-                    <select id="category">
-                        <option value="식자재">식자재</option><option value="주류">주류</option><option value="소모품">소모품</option>
+                    <select id="category" style="height:60px; font-size:1.1rem;">
+                        <option value="식자재">식자재</option>
+                        <option value="주류">주류</option>
+                        <option value="소모품">소모품</option>
+                        <option value="인건비">인건비 (알바/급여)</option>
+                        <option value="임대료">임대료</option>
+                        <option value="전기요금">전기요금</option>
+                        <option value="수도요금">수도요금</option>
+                        <option value="가스요금">가스요금</option>
+                        <option value="기타">기타</option>
                     </select>
                 </div>
-                <button class="btn btn-primary" id="savePurchaseBtn" style="width: 100%; justify-content: center;">저장하기</button>
+                <button class="btn btn-primary" id="savePurchaseBtn" style="width: 100%; justify-content: center; height: 65px; font-size: 1.2rem; font-weight: 800;">데이터 저장하기 🫡</button>
             </div>
         </div>
     </div>
@@ -261,7 +309,50 @@
         <i data-lucide="camera"></i>
     </button>
 
-    <script src="app_v5.js"></script>
+    <script src="app_v5.js?v=8.2"></script>
     <script>lucide.createIcons();</script>
+    <!-- 3. Verification Center Modal (v6.0 Side-by-Side) -->
+    <div id="verifyModal" class="modal-overlay">
+        <div class="modal elite-modal verification-modal">
+            <div class="modal-header">
+                <h2><i data-lucide="shield-check"></i> 데이터 정밀 검증 센터</h2>
+                <button class="close-btn" onclick="App.closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="verification-container">
+                    <!-- Left: Original Image -->
+                    <div class="verify-image-panel">
+                        <canvas id="verifyCanvas"></canvas>
+                        <p class="help-text">영수증 원본을 확인하며 수정하세요.</p>
+                    </div>
+                    <!-- Right: Editable Data -->
+                    <div class="verify-data-panel">
+                        <div class="type-selector-group">
+                            <label>거래 유형</label>
+                            <div class="segmented-control" id="verifyTypeToggle">
+                                <button class="segment active" data-type="PURCHASE" onclick="App.setVerifyType('PURCHASE')">매입 (지출)</button>
+                                <button class="segment" data-type="SALE" onclick="App.setVerifyType('SALE')">매출 (수입)</button>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:20px;">
+                            <label>거래처 / 품목명</label>
+                            <input type="text" id="verifyVendor">
+                        </div>
+                        <div id="verifyItemsContainer">
+                            <!-- Scanned items will be here -->
+                        </div>
+                        <div class="summary-box">
+                            <div class="row"><p>공급가액</p><p id="verifySubtotal">₩0</p></div>
+                            <div class="row"><p>부가세</p><p id="verifyVAT">₩0</p></div>
+                            <div class="row highlighted"><p>최종합계</p><p id="verifyTotal">₩0</p></div>
+                        </div>
+                        <button class="btn btn-gold full-width" onclick="App.confirmVerification()">
+                            <i data-lucide="check"></i> 최종 장부 등록
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -1,6 +1,6 @@
 {
   "name": "pub-ai-elite",
-  "version": "5.0.0",
+  "version": "8.2.0",
   "description": "AI Receipt OCR & Simple Settlement Expert - PUB AI Elite Edition",
   "main": "index.html",
   "scripts": {

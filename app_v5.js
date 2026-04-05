@@ -1,6 +1,6 @@
-/**
- * PUB AI 장부 플랫폼 - v5.0 OCR ELITE Edition
- * 'Expert-Grade' AI OCR Engine & Professional Settlement Suite
+﻿/**
+ * PUB AI 장부 플랫폼 - v8.2 ELITE Edition
+ * 'Financial-Grade' Analyst Engine & Professional Verification Suite
  */
 
 const App = {
@@ -10,28 +10,22 @@ const App = {
     },
     charts: {},
     weather: 'sunny',
+    currentScanData: null,
     stream: null,
+    isInitializingCamera: false,
     currentFacingMode: 'environment',
-    currentScan: null,
 
     init() {
-        console.log("💎 PUB AI v5.0 OCR ELITE Booting...");
+        console.log("💎 KODARI v8.2 ELITE Edition Booting...");
         try {
-            // 1. Core Logic Setup
             this.generateMockData();
-            
-            // 2. UI Bindings (Run first to ensure buttons work even if data fails)
             this.bindEvents();
-            
-            // 3. Data Rendering
-            this.renderGlobalStats();
+            this.updateWeather('sunny');
             this.switchTab('dashboard');
-            
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            console.log("✅ v5.0 Boot Success");
+            console.log("✅ v8.2 Boot Success");
         } catch (e) {
-            console.error("🔥 v5.0 Boot Error:", e);
-            // alert("시스템 초기화 중 오류가 발생했습니다. 브라우저 캐시를 삭제하거나 다시 시도해 주세요.");
+            console.error("🔥 v7.0 Boot Error:", e);
         }
     },
 
@@ -41,24 +35,23 @@ const App = {
     },
 
     generateMockData() {
-        if (this.db.sales.length > 50 && this.db.purchases.length > 20) return;
+        if (this.db.sales.length > 150) return;
         const now = new Date();
         const categories = ['주류', '식자재', '인건비', '임대료', '공사비', '소모품', '기타'];
         this.db.sales = []; this.db.purchases = [];
-        for (let i = 150; i >= 0; i--) {
+        // Generate 180 days of data for high-fidelity 120-day Moving Average analysis
+        for (let i = 180; i >= 0; i--) {
             const date = new Date(now); date.setDate(now.getDate() - i);
             const ds = date.toISOString().split('T')[0];
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             const sale = Math.floor(700000 + Math.random() * 500000 + (isWeekend ? 400000 : 0));
-            this.db.sales.push({ id: 's'+i, date: ds, product: 'POS 매출 정산', amount: sale, type: 'SALE' });
+            this.db.sales.push({ date: ds, amount: sale, type: 'SALE' });
             
             if (i % 3 === 0) {
                 const c = categories[i % categories.length];
                 this.db.purchases.push({ 
-                    id: 'p'+i, 
                     date: ds, 
-                    vendor: 'Elite Vendor ' + (i%5), 
-                    product: c+' 물품 구매', 
+                    vendor: '공급협력사 ' + (i%5), 
                     amount: Math.floor(200000 + Math.random() * 300000), 
                     category: c, 
                     type: 'PURCHASE' 
@@ -75,15 +68,6 @@ const App = {
             if(el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
         };
         
-        on('addPurchaseBtn', () => this.openModal('purchaseModal'));
-        on('savePurchaseBtn', () => this.handleSavePurchase());
-        on('scanReceiptBtn', () => this.switchTab('scan'));
-        
-        // Modal buttons
-        on('btnExportCSV', () => this.exportCSV());
-        on('btnExportJSON', () => this.exportJSON());
-        on('btnConfirmScan', () => this.confirmScannedItems());
-        
         // Navigation (ensure data-tab links work reliably)
         document.querySelectorAll('.nav-links li').forEach(li => {
             li.addEventListener('click', (e) => {
@@ -91,24 +75,9 @@ const App = {
                 if (tab) this.switchTab(tab);
             });
         });
-
-        // Weather selector sync
-        document.querySelectorAll('input[name="weather"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                this.weather = e.target.value;
-                this.updateAIInsight();
-            });
-        });
     },
 
     switchTab(tabName) {
-        // If already on scan tab and scan button clicked, perform capture
-        const activeTab = document.querySelector('.tab-content.active');
-        if (tabName === 'scan' && activeTab && activeTab.id === 'section-scan') {
-            this.capturePhoto();
-            return;
-        }
-
         this.stopCamera();
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         const sec = document.getElementById('section-' + tabName);
@@ -117,6 +86,9 @@ const App = {
         document.querySelectorAll('.nav-links li').forEach(n => n.classList.remove('active'));
         const nav = document.querySelector(`.nav-links li[data-tab="${tabName}"]`);
         if (nav) nav.classList.add('active');
+
+        const fab = document.querySelector('.fab-btn');
+        if (fab) fab.style.display = tabName === 'scan' ? 'none' : 'grid';
 
         if (tabName === 'dashboard') this.initDashboard();
         if (tabName === 'report') this.initReport();
@@ -127,20 +99,48 @@ const App = {
     },
 
     /**
-     * Professional Camera & OCR Engine
+     * Professional Camera & OCR Engine (v7.0 Elite Core)
      */
     async initCamera() {
+        if (this.isInitializingCamera) return;
+        this.isInitializingCamera = true;
+
         const video = document.getElementById('cameraVideo');
-        if (!video) return;
+        if (!video) {
+            this.isInitializingCamera = false;
+            return;
+        }
+
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: this.currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            // Relaxed constraints for better mobile compatibility
+            const constraints = {
+                video: { 
+                    facingMode: this.currentFacingMode,
+                    width: { ideal: 1280, max: 1920 },
+                    height: { ideal: 720, max: 1080 }
+                },
                 audio: false
-            });
+            };
+
+            this.stream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = this.stream;
+            
+            // Wait for video to be ready before showing
+            video.onloadedmetadata = () => {
+                video.play();
+                this.isInitializingCamera = false;
+            };
         } catch (err) {
-            console.error("Camera access denied:", err);
-            alert("카메라 접근 권한을 허용해 주세요.");
+            console.error("Camera access denied or error:", err);
+            this.isInitializingCamera = false;
+            
+            let msg = "카메라 접근 권한이 필요합니다.";
+            if (err.name === 'NotAllowedError') {
+                msg = "브라우저에서 카메라 권한을 '차단'했습니다. 주소창 왼쪽 자물쇠를 눌러 '허용'으로 바꿔주세요.";
+            } else if (err.name === 'NotFoundError') {
+                msg = "사용 가능한 카메라를 찾을 수 없습니다.";
+            }
+            alert(msg + "\n\n(카카오톡 내 브라우저라면 '크롬'으로 열면 해결됩니다!)");
         }
     },
 
@@ -151,414 +151,400 @@ const App = {
         }
     },
 
-    switchCamera() {
-        this.currentFacingMode = (this.currentFacingMode === 'user' ? 'environment' : 'user');
-        this.initCamera();
-    },
-
-    toggleFlash() {
-        const track = this.stream ? this.stream.getVideoTracks()[0] : null;
-        if (track && track.getCapabilities().torch) {
-            const current = track.getSettings().torch;
-            track.applyConstraints({ advanced: [{ torch: !current }] });
-        } else {
-            alert("이 기기에서는 플래시 기능을 지원하지 않습니다.");
-        }
-    },
-
     capturePhoto() {
         const video = document.getElementById('cameraVideo');
-        if (!video) return;
+        if (!video || !this.stream) {
+            alert("카메라가 준비되지 않았습니다. (Permission or Loading)");
+            return;
+        }
+        
+        console.log("📸 Capture Triggered");
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
+        
+        if (canvas.width === 0 || canvas.height === 0) {
+            alert("카메라 데이터를 읽을 수 없습니다. 브라우저를 새로고침해 주세요.");
+            return;
+        }
+
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0);
+        // this.preprocessImage(canvas); // REMOVED: Google Vision works best with raw, un-thresholded color images.
+        const imgData = canvas.toDataURL('image/jpeg', 0.9);
         
-        // v5.2 초정밀 전처리 엔진 가동
-        this.preprocessImage(canvas);
-        
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         this.runOCR(imgData);
     },
 
-    /**
-     * OCR v5.2 이미지 전처리 모듈 (Binarization & Contrast)
-     */
     preprocessImage(canvas) {
         const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-
-        // 1. 캔버스 필터를 통한 기본 보정 (회색기 제거 및 강조)
-        ctx.filter = 'grayscale(1) contrast(1.8) brightness(1.1) sharp(2)';
+        ctx.filter = 'grayscale(1) contrast(1.8) brightness(1.1)';
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = 'none';
 
-        // 2. 픽셀 단위 정밀 이진화 (Adaptive Binarization 필터링 소환)
-        const imgData = ctx.getImageData(0, 0, width, height);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const pixels = imgData.data;
-        
-        // 평균 밝기 계산
         let total = 0;
-        for (let i = 0; i < pixels.length; i += 4) {
-            total += pixels[i];
-        }
-        const avg = total / (pixels.length / 4);
-        const threshold = avg * 0.95; // 배경 노이즈 제거를 위한 문턱값 조정
+        for (let i = 0; i < pixels.length; i += 4) total += pixels[i];
+        const threshold = (total / (pixels.length / 4)) * 0.95;
 
         for (let i = 0; i < pixels.length; i += 4) {
             const v = (pixels[i] > threshold) ? 255 : 0;
-            pixels[i] = pixels[i + 1] = pixels[i + 2] = v; // 완전한 흑백 전환
+            pixels[i] = pixels[i + 1] = pixels[i + 2] = v;
         }
         ctx.putImageData(imgData, 0, 0);
-        console.log("💎 KODARI v5.2 이미지 전처리 완료 (Threshold:", threshold.toFixed(1), ")");
     },
 
-    runOCR(imgData) {
-        this.openModal('scanModal');
-        const loading = document.getElementById('scanLoading');
-        const result = document.getElementById('scanResult');
+    async runOCR(imgData) {
         const statusText = document.querySelector('.scan-status-text');
+        if(statusText) statusText.innerText = "Google Cloud AI 분석 요청 중...";
         
-        loading.style.display = 'block';
-        result.style.display = 'none';
-        if(statusText) statusText.innerText = "AI 신경망 분석 중...";
+        try {
+            console.log("🚀 Sending to /api/ocr...");
+            const response = await fetch('/api/ocr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imgData })
+            });
 
-        // Real Tesseract call (Optimized for Kor/Num Only)
-        Tesseract.recognize(imgData, 'kor', {
-            logger: m => {
-                if(m.status === 'recognizing text' && statusText) {
-                    const progress = Math.floor(m.progress * 100);
-                    statusText.innerText = `데이터 구조화 중... ${progress}%`;
-                }
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errText}`);
             }
-        }).then(({ data: { text } }) => {
-            console.log("OCR RAW TEXT:", text);
-            loading.style.display = 'none';
-            result.style.display = 'block';
-            if(statusText) statusText.innerText = "분석 완료!";
+
+            const data = await response.json();
+            if (!data.success) throw new Error(data.details || 'OCR 분석 실패');
+
+            console.log("💎 OCR Success:", data.fullText);
+            const parsed = this.parseReceipt(data.fullText);
+            this.currentScanData = parsed;
             
-            const scanData = this.parseReceipt(text);
-            this.currentScan = scanData;
-            this.renderScannedData(scanData);
-        }).catch(err => {
-            loading.style.display = 'none';
-            alert('인식에 실패했습니다. 다시 촬영해 주세요.');
-            this.closeModal();
-        });
+            if(statusText) statusText.innerText = "분석 완료!";
+            setTimeout(() => this.openVerificationCenter(imgData, parsed), 500);
+
+        } catch (err) {
+            console.error("OCR API Error Details:", err);
+            alert(`AI 분석 오류: ${err.message}\n(구글 클라우드 계정 혹은 API 설정을 점검해 주세요.)`);
+            if(statusText) statusText.innerText = "분석 오류 발생";
+        }
     },
 
     /**
-     * OCR ELITE 고속 분석 및 데이터 구조화 엔진 (v5.0.2)
-     * 초고액 오인식 방지 및 메타데이터 필터링 강화
+     * v6.0 Verification Center (Side-by-Side Review)
      */
-    parseReceipt(text) {
-        // 0. 초기 정제 (노이즈 제거)
-        const cleanText = text.replace(/[*+\-|()\[\]]/g, ' '); 
-        const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+    openVerificationCenter(imgData, data) {
+        this.closeModal();
+        this.openModal('verifyModal');
         
-        console.log("💎 KODARI 파서 v5.0.2 작동 시작");
+        const canvas = document.getElementById('verifyCanvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = imgData;
 
-        // 1. 가맹점/상호명 판별
-        let vendor = "알 수 없는 가맹점";
-        const bizNames = ['유통', '편의점', '식당', '치킨', '포차', '마트', '병원', '약국', '카페', '커피', '푸드', '컴퓨터', '주문'];
-        for (let i = 0; i < Math.min(lines.length, 5); i++) {
-            const l = lines[i].replace(/[0-9:.-]/g, '').trim();
-            if (l.length > 2 && (bizNames.some(n => l.includes(n)) || i < 2)) {
-                vendor = l;
-                if (vendor.length > 2) break;
+        document.getElementById('verifyVendor').value = data.vendor || "공급처 불명";
+        data.type = data.type || 'PURCHASE'; // Default
+        this.setVerifyType(data.type);
+        this.renderVerifyItems(data.items);
+        this.updateVerifySummary();
+    },
+
+    setVerifyType(type) {
+        this.currentScanData.type = type;
+        document.querySelectorAll('#verifyTypeToggle .segment').forEach(s => {
+            s.classList.toggle('active', s.getAttribute('data-type') === type);
+        });
+        // Optional: change total text color based on type
+        const totalEl = document.getElementById('verifyTotal');
+        if (totalEl) totalEl.style.color = type === 'PURCHASE' ? 'var(--accent-magenta)' : 'var(--accent-cyan)';
+    },
+
+    renderVerifyItems(items) {
+        const container = document.getElementById('verifyItemsContainer');
+        container.innerHTML = items.length > 0 ? items.map((it, idx) => `
+            <div class="scanned-item-row" style="display:grid; grid-template-columns: 1fr 35px 70px 75px; align-items:center; gap:6px; margin-bottom:12px; padding:15px 10px; background:rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius:12px;">
+                <input type="text" value="${it.name}" style="background:transparent; border:none; color:#fff; font-size:1rem; min-width:0; padding:0;" onchange="App.currentScanData.items[${idx}].name=this.value">
+                <input type="number" value="${it.qty}" style="background:transparent; border:none; color:var(--accent-cyan); text-align:center; font-size:1rem; font-weight:700; min-width:0; padding:0;" onchange="App.currentScanData.items[${idx}].qty=parseInt(this.value); App.updateVerifySummary()">
+                <input type="number" value="${it.unitPrice}" style="background:transparent; border:none; color:var(--accent-gold); text-align:right; font-size:1rem; font-weight:700; min-width:0; padding:0;" onchange="App.currentScanData.items[${idx}].unitPrice=parseInt(this.value); App.updateVerifySummary()">
+                <span style="text-align:right; font-weight:800; font-size:1rem; color:var(--accent-magenta); white-space:nowrap;">₩${(it.qty * it.unitPrice).toLocaleString()}</span>
+            </div>
+        `).join('') : '<p style="color:var(--text-dim); text-align:center; padding:20px;">품목 인식 실패. 직접 입력해 주세요.</p>';
+        
+        const addBtn = document.createElement('button');
+        addBtn.className = "btn btn-secondary full-width";
+        addBtn.style.marginTop = "10px";
+        addBtn.innerHTML = '<i data-lucide="plus"></i> 항목 추가';
+        addBtn.onclick = () => {
+            this.currentScanData.items.push({ name:'새 항목', qty:1, unitPrice:0 });
+            this.renderVerifyItems(this.currentScanData.items);
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+        };
+        container.appendChild(addBtn);
+        if(typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    updateVerifySummary() {
+        const data = this.currentScanData;
+        const subtotal = data.items.reduce((a, b) => a + (b.qty * b.unitPrice), 0);
+        const total = Math.ceil(subtotal * 1.1);
+        const vat = total - subtotal;
+        
+        document.getElementById('verifySubtotal').innerText = '₩' + subtotal.toLocaleString();
+        document.getElementById('verifyVAT').innerText = '₩' + vat.toLocaleString();
+        document.getElementById('verifyTotal').innerText = '₩' + total.toLocaleString();
+    },
+
+    confirmVerification() {
+        const vendor = document.getElementById('verifyVendor').value;
+        const totalText = document.getElementById('verifyTotal').innerText.replace(/[^0-9]/g, '');
+        const total = parseInt(totalText);
+        const type = this.currentScanData.type || 'PURCHASE';
+        
+        const entry = {
+            id: Date.now(),
+            date: new Date().toISOString().split('T')[0],
+            vendor: vendor,
+            product: vendor + (ty    parseReceipt(text) {
+        console.log("📄 Raw OCR Text:", text);
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        // 1. Intelligent Vendor Extraction
+        let vendor = "가맹점 정보 없음";
+        for (let i = 0; i < Math.min(10, lines.length); i++) {
+            const clean = lines[i].replace(/\s/g, '');
+            if (clean.match(/유통|마트|식당|본점|상사|상점|나라|테크|식품|코리아|푸드|물산/) && !lines[i].match(/사업자|주소|대표|영수증|번호|pos|전표/i)) {
+                vendor = lines[i].replace(/[<>\[\]\(\)*]/g, '').trim();
+                break; 
             }
         }
 
-        // 2. 메타데이터 및 거래 정보 추출
-        let bizId = "000-00-00000", address = "주소 정보 없음", phone = "전화 정보 없음";
-        let date = new Date().toISOString().split('T')[0], time = "12:00:00", payMethod = "신용카드", approvalNo = "00000000";
-
-        lines.forEach(line => {
-            if (line.match(/[0-9]{3}-[0-9]{2}-[0-9]{5}/)) bizId = line.match(/[0-9]{3}-[0-9]{2}-[0-9]{5}/)[0];
-            if (line.match(/[0-9]{2,3}-[0-9]{3,4}-[0-9]{4}/)) phone = line.match(/[0-9]{2,3}-[0-9]{3,4}-[0-9]{4}/)[0];
-            if (line.match(/[0-9]{2,4}[./-][0-9]{2}[./-][0-9]{2}/)) {
-                let d = line.match(/[0-9]{2,4}[./-][0-9]{2}[./-][0-9]{2}/)[0].replace(/[./]/g, '-');
-                if (d.split('-')[0].length === 2) d = '20' + d;
-                date = d;
-            }
-            if (line.match(/[0-9]{2}:[0-9]{2}(:[0-9]{2})?/)) time = line.match(/[0-9]{2}:[0-9]{2}(:[0-9]{2})?/)[0];
-            if (line.includes('현금') || line.includes('CASH')) payMethod = '현금';
-            const appMatch = line.match(/(승인|APP)[^0-9]*([0-9]{6,10})/i);
-            if (appMatch) approvalNo = appMatch[2];
-            if ((line.includes('시 ') && line.includes('구 ')) || line.includes('주소')) address = line.replace('주소', '').trim();
-        });
-
-        // 3. 품목 및 금액 지능형 추출 (v5.0.2 Sanity Check)
+        // 2. Section-Bounded Item Extraction
         const items = [];
         let detectedTotal = 0;
+        
+        let startIdx = 0;
+        let endIdx = lines.length;
 
-        lines.forEach(line => {
-            // 메타데이터 포함 라인은 제외 (금액 오인식 방지)
-            if (line.match(/사업자|전화|TEL|번호|일자|시간|승인|카드|NO/i)) return;
+        // Find Start Bound (Table Header)
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].match(/품\s*명|단\s*가|수\s*량|금\s*액/)) {
+                startIdx = i + 1;
+                break;
+            }
+        }
 
-            const numbers = line.match(/[0-9]{1,3}(,[0-9]{3})*[0-9]*/g);
-            if (numbers && numbers.length >= 2) {
-                const vals = numbers.map(n => parseInt(n.replace(/,/g, ''))).filter(n => n > 0);
-                if (vals.length >= 2) {
-                    const amount = vals[vals.length - 1];
-                    const qty = vals.length >= 2 ? vals[vals.length - 2] : 1;
-                    
-                    // 1억 원 이상의 비정상적인 금액은 무시 (영수증 일련번호 등 오인식 방지)
-                    if (amount > 100000000) return;
+        // Find End Bound (Total Footer)
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (lines[i].match(/합\s*계|과\s*세|부\s*가\s*세|면\s*세|받\s*은\s*돈|카\s*드/)) {
+                endIdx = i;
+                const am = lines[i].match(/([0-9,]{4,10})/);
+                if (am) detectedTotal = Math.max(detectedTotal, parseInt(am[1].replace(/,/g, '')));
+                break;
+            }
+        }
 
-                    const name = line.replace(/[0-9,.:/]/g, '').trim();
-                    if (name.length >= 2 && amount > 100 && !line.match(/합계|총액|결제|금액/)) {
-                        items.push({ name, qty, unitPrice: Math.floor(amount/qty), amount, cat: this.autoCategorize(name) });
+        // Process only lines within the item bounds
+        const itemLines = lines.slice(startIdx, endIdx);
+
+        itemLines.forEach(line => {
+            const cleanLine = line.trim();
+            // Final trash guard for metadata within bounds
+            if (cleanLine.match(/사업자|주소|대표|pos|전화|가맹|일자|시간|번호/i)) return;
+            if (cleanLine.length < 5) return;
+
+            const tokens = cleanLine.split(/\s+/).filter(t => t.length > 0);
+            let nums = [];
+            let nameParts = [];
+            
+            tokens.forEach(t => {
+                const nStr = t.replace(/[,.]/g, '');
+                // Handle complex cases like (2) or (2k) being merged with name
+                if (/^\d+$/.test(nStr) && nStr.length < 9) nums.push(parseInt(nStr));
+                else nameParts.push(t);
+            });
+
+            if (nums.length >= 1) {
+                const lineTotal = nums[nums.length - 1];
+                let name = nameParts.join(' ').replace(/^\d{8,}\s*/, '').trim();
+                if (name.length < 2 || name.match(/^[0-9\s,\.\-\(\)]+$/)) return;
+
+                let qty = 1;
+                let price = lineTotal;
+
+                if (nums.length >= 2) {
+                    // Optimized Algebra for UnitPrice calculation
+                    const candidateQty = nums[nums.length - 2];
+                    const candidatePrice = nums[nums.length - 3] || -1;
+
+                    if (candidatePrice !== -1 && Math.abs(candidatePrice * candidateQty - lineTotal) < 10) {
+                        price = candidatePrice;
+                        qty = candidateQty;
+                    } else if (candidateQty < 100 && candidateQty > 0) {
+                        qty = candidateQty;
+                        price = Math.round(lineTotal / qty);
                     }
                 }
-            }
-
-            // 합계 금액 탐색 (가장 큰 현실적인 숫자를 선택)
-            if (line.match(/합계|총액|결제|금액|받을|TOTAL/i)) {
-                const totalNums = line.match(/[0-9,]{4,10}/g);
-                if (totalNums) {
-                    const t = parseInt(totalNums[0].replace(/,/g, ''));
-                    // 1억 이하의 현실적인 금액만 합계 후보로 선정
-                    if (t > detectedTotal && t < 100000000) detectedTotal = t;
-                }
+                items.push({ name, qty, unitPrice: price });
             }
         });
 
-        // 4. 산술 검증 및 디지털 스무딩 (v5.1 신규 로직)
-        items.forEach(it => {
-            it.verified = (it.unitPrice * it.qty === it.amount);
-            
-            // 산술 오류 시 교정 (8->3, 0->9 등 유사 숫자 보정 시도)
-            if (!it.verified) {
-                const candidates = this.getArithmeticCandidates(it);
-                if (candidates) {
-                    it.unitPrice = candidates.unitPrice;
-                    it.qty = candidates.qty;
-                    it.amount = candidates.amount;
-                    it.verified = true;
-                    it.autoCorrected = true;
-                }
-            }
-        });
-
-        // 5. 최종 데이터 보정 및 신뢰도 체크
-        let total = detectedTotal;
-        const subtotalSum = items.filter(it => it.verified).reduce((a, b) => a + b.amount, 0);
-        
-        // 아이템 합계와 키워드 합계가 1% 이내로 차이나면 신뢰도 높음
-        const totalReliable = Math.abs(subtotalSum * 1.1 - total) < (total * 0.01);
-        if (!totalReliable && subtotalSum > 0) {
-            // 아이템들의 검산이 완벽하다면 아이템 합계를 실제 총합으로 간주
-            total = Math.ceil(subtotalSum * 1.1);
+        // 3. Finalization
+        if (detectedTotal === 0 && items.length > 0) {
+            detectedTotal = items.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0);
         }
-        
-        if (total === 0) total = 50000;
 
-        const finalSubtotal = Math.ceil(total / 1.1);
-        const finalVat = total - finalSubtotal;
+        return { 
+            vendor, 
+            items: items.slice(0, 50),
+            total: detectedTotal,
+            classification: text.toLowerCase().match(/마트|편의점|슈퍼/) ? '소모품' : 
+                            text.toLowerCase().match(/식당|음식|커피|카페/) ? '식자재' :
+                            text.toLowerCase().match(/주점|포차|비어|술/) ? '주류' : '기타'
+        };
+    },�|총\s*액|TOTAL/i)) {
+                const am = cleanLine.match(/([0-9,]{4,10})/);
+                if (am) detectedTotal = Math.max(detectedTotal, parseInt(am[1].replace(/,/g, '')));
+            }
+        });
 
-        return { vendor, bizId, address, phone, date, time, payMethod, approvalNo, items, subtotal: finalSubtotal, vat: finalVat, total, classification: this.getClassification(vendor, time, total), reliable: totalReliable };
+        // 3. Finalization
+        if (detectedTotal === 0 && items.length > 0) {
+            detectedTotal = items.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0);
+        }
+
+        return { 
+            vendor, 
+            items: items.slice(0, 50),
+            total: detectedTotal,
+            classification: text.toLowerCase().match(/마트|편의점|슈퍼/) ? '소모품' : 
+                            text.toLowerCase().match(/식당|음식|커피|카페/) ? '식자재' :
+                            text.toLowerCase().match(/주점|포차|비어|술/) ? '주류' : '기타'
+        };
     },
 
     /**
-     * 산술 후보군 생성 (디지털 스무딩)
+     * v6.0 Analyst Engine: Multi-Period Moving Averages & Weather Strategy
      */
-    getArithmeticCandidates(it) {
-        const alt = (num) => {
-            const s = num.toString();
-            // 흔한 오인식: 8<->3, 0<->9, 1<->7
-            const maps = {'8':'3', '3':'8', '0':'9', '9':'0', '1':'7', '7':'1'};
-            let variants = [s];
-            for (let i = 0; i < s.length; i++) {
-                if (maps[s[i]]) {
-                    variants.push(s.substring(0, i) + maps[s[i]] + s.substring(i + 1));
-                }
+    initTrendChart() {
+        const can = document.getElementById('trendChart');
+        if (!can) return;
+        if (this.charts.dashboard) this.charts.dashboard.destroy();
+
+        const sortedSales = [...this.db.sales].sort((a,b) => new Date(a.date) - new Date(b.date));
+        const last30 = sortedSales.slice(-30);
+
+        const getMA = (data, period) => {
+            const ma = [];
+            for (let i = 0; i < data.length; i++) {
+                const start = Math.max(0, i - period + 1);
+                const subset = data.slice(start, i + 1);
+                const avg = subset.reduce((a, b) => a + b.amount, 0) / subset.length;
+                ma.push(avg);
             }
-            return variants.map(v => parseInt(v));
+            return ma;
         };
 
-        const uPrices = alt(it.unitPrice);
-        const qtys = alt(it.qty);
-        const amounts = alt(it.amount);
+        const ma5 = getMA(sortedSales, 5).slice(-30);
+        const ma20 = getMA(sortedSales, 20).slice(-30);
+        const ma60 = getMA(sortedSales, 60).slice(-30);
+        const ma120 = getMA(sortedSales, 120).slice(-30);
 
-        for (let u of uPrices) {
-            for (let q of qtys) {
-                for (let a of amounts) {
-                    if (u * q === a && a > 100) return { unitPrice: u, qty: q, amount: a };
+        this.charts.dashboard = new Chart(can, {
+            type: 'line',
+            data: {
+                labels: last30.map(d => d.date.slice(5)),
+                datasets: [
+                    { label: '매출', data: last30.map(d => d.amount), borderColor: '#f0f0ff', borderWidth: 1, pointRadius: 2, tension: 0.3 },
+                    { label: '5일', data: ma5, borderColor: '#00fff2', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+                    { label: '20일', data: ma20, borderColor: '#ffbd00', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+                    { label: '60일', data: ma60, borderColor: '#ff00c1', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+                    { label: '120일', data: ma120, borderColor: '#39ff14', borderWidth: 2, pointRadius: 0, tension: 0.4 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font:{size:10} } },
+                    x: { grid: { display: false }, ticks: { color: '#64748b', font:{size:10} } }
                 }
             }
-        }
-        return null;
-    },
-
-    autoCategorize(name) {
-        if (name.match(/맥주|소주|와인|주류|하이볼|위스키/)) return '주류';
-        if (name.match(/고기|야채|쌀|계란|우유|식료품|등심|찌개/)) return '식자재';
-        if (name.match(/봉투|휴지|비누|청소|마스크/)) return '소모품';
-        if (name.match(/알바|급여|보너스/)) return '인건비';
-        return '기타';
-    },
-
-    getClassification(vendor, time, total) {
-        const hour = parseInt(time.split(':')[0]);
-        if (total > 100000 && hour >= 18) return "팀 회식비";
-        if (hour >= 21) return "야근 식대";
-        if (vendor.includes('편의점') || vendor.includes('마트')) return "소모품/비품";
-        if (vendor.includes('택시') || vendor.includes('T-')) return "교통비";
-        return "일반 매입";
-    },
-
-    /**
-     * UI Rendering for OCR ELITE
-     */
-    renderScannedData(data) {
-        // Headers
-        document.getElementById('scanVendor').innerText = data.vendor;
-        document.getElementById('scanBizId').innerText = data.bizId;
-        document.getElementById('scanAddress').innerText = data.address;
-        document.getElementById('scanDateTime').innerText = `${data.date} ${data.time}`;
-        document.getElementById('scanPayMethod').innerText = data.payMethod;
-        document.getElementById('scanApprovalNo').innerText = data.approvalNo;
-        document.getElementById('scanClassification').innerText = data.classification;
-
-        // Reliability Indicator
-        const statusEl = document.getElementById('scanStatusBadge');
-        if (statusEl) {
-            statusEl.innerHTML = data.reliable ? 
-                '<span class="badge badge-success"><i data-lucide="check-circle-2"></i> 정밀 검산 완료</span>' : 
-                '<span class="badge badge-warning"><i data-lucide="alert-triangle"></i> 수치 확인 필요</span>';
-        }
-
-        // Table
-        const tbody = document.getElementById('scanTableBody');
-        tbody.innerHTML = data.items.map((it, idx) => `
-            <tr class="${it.verified ? 'row-verified' : 'row-error'} ${it.autoCorrected ? 'row-corrected' : ''}">
-                <td data-label="품목명"><input type="text" value="${it.name}" onchange="App.updateScanItem(${idx}, 'name', this.value)"></td>
-                <td data-label="수량"><input type="number" value="${it.qty}" style="width: 50px;" onchange="App.updateScanItem(${idx}, 'qty', this.value)"></td>
-                <td data-label="단가"><input type="number" value="${it.unitPrice}" onchange="App.updateScanItem(${idx}, 'unitPrice', this.value)"></td>
-                <td data-label="총금액" style="text-align: right; font-weight: 700;">
-                    ₩${it.amount.toLocaleString()}
-                    ${it.verified ? '<i class="status-icon icon-ok" data-lucide="badge-check"></i>' : '<i class="status-icon icon-warn" data-lucide="info"></i>'}
-                </td>
-            </tr>
-        `).join('');
-
-        // Summary
-        document.getElementById('scanSubtotal').innerText = '₩' + data.subtotal.toLocaleString();
-        document.getElementById('scanVAT').innerText = '₩' + data.vat.toLocaleString();
-        document.getElementById('scanTotal').innerText = '₩' + data.total.toLocaleString();
-    },
-
-    updateScanItem(idx, field, val) {
-        const item = this.currentScan.items[idx];
-        if (field === 'qty' || field === 'unitPrice') {
-            item[field] = parseInt(val) || 0;
-            item.amount = item.qty * item.unitPrice;
-        } else {
-            item[field] = val;
-        }
-        // Recalc global totals
-        this.currentScan.subtotal = this.currentScan.items.reduce((a, b) => a + b.amount, 0);
-        this.currentScan.vat = Math.floor(this.currentScan.subtotal * 0.1);
-        this.currentScan.total = this.currentScan.subtotal + this.currentScan.vat;
-        this.renderScannedData(this.currentScan);
-    },
-
-    confirmScannedItems() {
-        if (!this.currentScan) return;
-        const purchase = {
-            id: Date.now(),
-            date: this.currentScan.date,
-            vendor: this.currentScan.vendor,
-            product: this.currentScan.items.length > 1 ? `${this.currentScan.items[0].name} 외 ${this.currentScan.items.length-1}건` : this.currentScan.items[0].name,
-            amount: this.currentScan.total,
-            category: this.currentScan.items[0].cat,
-            type: 'PURCHASE',
-            meta: this.currentScan // Store full OCR metadata
-        };
-        this.db.purchases.unshift(purchase);
-        this.save();
-        alert('데이터가 성공적으로 장부에 기록되었습니다.');
-        this.closeModal();
-        this.switchTab('dashboard');
-    },
-
-    /**
-     * Export Engine
-     */
-    exportCSV() {
-        if (!this.currentScan) return;
-        let csv = "\uFEFF품목,수량,단가,금액,카테고리\n";
-        this.currentScan.items.forEach(it => {
-            csv += `${it.name},${it.qty},${it.unitPrice},${it.amount},${it.cat}\n`;
         });
-        csv += `\n합계,,,${this.currentScan.total},`;
-        this.downloadFile(csv, `Settlement_${this.currentScan.date}_${this.currentScan.vendor}.csv`, 'text/csv');
+
+        this.updateManagerBriefing(ma5, ma20, ma120);
     },
 
-    exportJSON() {
-        if (!this.currentScan) return;
-        const blob = JSON.stringify(this.currentScan, null, 2);
-        this.downloadFile(blob, `Receipt_${this.currentScan.date}.json`, 'application/json');
+    updateWeather(type) {
+        this.weather = type;
+        const badge = document.getElementById('weatherAdviceBadge');
+        const text = document.getElementById('weatherText');
+        if (badge) badge.innerText = type === 'sunny' ? '맑음/최적' : (type === 'rainy' ? '비/배달특수' : '흐림/안주');
+        if (text) text.innerText = `오늘의 날씨: ${type === 'sunny' ? '맑음' : '비'} (실시간 옵션)`;
+        this.initTrendChart();
     },
 
-    downloadFile(content, filename, type) {
-        const blob = new Blob([content], { type });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
-        URL.revokeObjectURL(url);
+    updateManagerBriefing(ma5, ma20, ma120) {
+        const el = document.getElementById('trendInsight');
+        const profEl = document.getElementById('m-profitability');
+        const gradeEl = document.getElementById('m-grade');
+        if (!el) return;
+
+        const totalSales = this.db.sales.reduce((a, b) => a + b.amount, 0);
+        const totalPurchase = this.db.purchases.reduce((a, b) => a + b.amount, 0);
+        const profitMargin = totalSales > 0 ? ((totalSales - totalPurchase) / totalSales * 100).toFixed(1) : 0;
+
+        // Update Strategy Metrics
+        if (profEl) profEl.innerText = profitMargin + '%';
+        
+        let grade = "B";
+        let gradeColor = "var(--text-dim)";
+        if (profitMargin > 15) { grade = "A"; gradeColor = "var(--accent-green)"; }
+        if (profitMargin > 30) { grade = "AA"; gradeColor = "var(--accent-cyan)"; }
+        if (profitMargin > 50) { grade = "AAA"; gradeColor = "var(--accent-gold)"; }
+        if (gradeEl) { gradeEl.innerText = grade; gradeEl.style.color = gradeColor; }
+
+        const cur5 = ma5[ma5.length-1];
+        const cur20 = ma20[ma20.length-1];
+
+        let diagnosis = "";
+        if (cur5 > cur20) diagnosis = "현재 <span style='color:var(--accent-cyan)'>골든크로스</span> 구간입니다. 공격적인 마케팅이 유효할 것으로 판단됩니다.";
+        else diagnosis = "매출 흐름이 정체된 <span style='color:var(--accent-magenta)'>데드크로스</span> 상태입니다. 비용 최적화가 시급합니다.";
+        
+        const weatherAdvice = {
+            'sunny': '고객 방문이 늘어나는 화창한 날씨입니다. 테라스 좌석 및 시원한 주류 메뉴를 메인으로 노출하세요.',
+            'rainy': '강수 예보가 있습니다. 배달 메뉴의 옵션을 다양화하고 가전류 청결 상태를 점검할 시기입니다.',
+            'cloudy': '흐린 기조입니다. 퇴근길 가벼운 안주와 따뜻한 국물 요리의 프로모션을 추천합니다.'
+        };
+        const adv = weatherAdvice[this.weather] || weatherAdvice['sunny'];
+
+        el.innerHTML = `<strong>💼 경영 진단:</strong> ${diagnosis} <br><br> <strong>🌤️ 날씨 전략:</strong> ${adv}`;
+    },
+
+    generateExecutiveReport() {
+        alert("📊 정밀 경영 보고서 분석 중...\n\n- 현재 수익률: " + document.getElementById('m-profitability').innerText + "\n- 전략 등급: " + document.getElementById('m-grade').innerText + "\n- 다음 목표: 고정비 5% 절감 및 재방문율 12% 상승");
     },
 
     /**
-     * Dashboard & Reports (Existing but updated stats)
+     * Dashboard & UI Controls
      */
     initDashboard() {
         this.renderGlobalStats();
         this.initTrendChart();
-        this.updateAIInsight();
         this.renderRecentHistory();
     },
 
     renderGlobalStats() {
         const totalSales = this.db.sales.reduce((a, b) => a + b.amount, 0);
         const totalPurchase = this.db.purchases.reduce((a, b) => a + b.amount, 0);
-        const _set = (id, val) => {
-            const el = document.getElementById(id);
-            if(el) el.innerText = '₩' + val.toLocaleString();
-        };
+        const _set = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = '₩' + val.toLocaleString(); };
         _set('dash-sales', totalSales);
         _set('dash-purchase', totalPurchase);
-        const bepEl = document.getElementById('dash-bep');
-        if (bepEl) bepEl.innerText = this.db.purchases.filter(p => new Date(p.date) > new Date(Date.now() - 86400000)).length + '건';
-    },
-
-    initTrendChart() {
-        const can = document.getElementById('trendChart');
-        if (!can || typeof Chart === 'undefined') return;
-        if (this.charts.dashboard) this.charts.dashboard.destroy();
-        const data = [...this.db.sales].sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(-20);
-        this.charts.dashboard = new Chart(can, {
-            type: 'line',
-            data: { 
-                labels: data.map(d=>d.date.slice(5)), 
-                datasets: [{ label: '매출', data: data.map(d=>d.amount), borderColor: '#00fff2', backgroundColor: 'rgba(0, 255, 242, 0.1)', fill: true, tension: 0.4, borderWidth: 3 }] 
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
-        });
-    },
-
-    updateAIInsight() {
-        const insightEl = document.getElementById('trendInsight');
-        if (!insightEl) return;
-        const trend = this.getClassification('', '', 200000);
-        insightEl.innerHTML = `
-            <strong>🫡 코다리 부장 브리핑:</strong> 사장님, 현재 v5.0 엔진의 분석 결과를 보고드립니다. <br>
-            최근 영수증 패턴 분석 결과, <strong>${trend}</strong> 비중이 평소보다 12% 높습니다. <br>
-            <strong>💡 조언:</strong> 매입 증빙 누락 의심 건이 3건 식별되었습니다. 즉시 스캔하여 절세 혜택을 확보하실 것을 강력 권고합니다.
-        `;
+        _set('dash-profit', totalSales - totalPurchase);
     },
 
     renderRecentHistory() {
@@ -566,12 +552,9 @@ const App = {
         if (!list) return;
         const hist = [...this.db.sales, ...this.db.purchases].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0, 8);
         list.innerHTML = hist.map(r => `
-            <div class="history-item" style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid var(--glass-border);">
-                <div>
-                    <h4 style="font-size:0.95rem;">${r.product}</h4>
-                    <p style="font-size:0.8rem; color:var(--text-dim);">${r.date} | ${r.vendor || '매장 매출'}</p>
-                </div>
-                <div style="font-weight:700; color:${r.type==='SALE'?'var(--accent-cyan)':'var(--accent-magenta)'}">${r.type==='SALE'?'+':'-'} ₩${r.amount.toLocaleString()}</div>
+            <div class="history-item">
+                <div class="item-info"><h4>${r.vendor || r.product}</h4><p>${r.date} / ${r.category || '정산'}</p></div>
+                <div class="item-amount ${r.type==='SALE'?'amount-sale':'amount-purchase'}">${r.type==='SALE'?'+':'-'} ₩${r.amount.toLocaleString()}</div>
             </div>
         `).join('');
     },
@@ -589,15 +572,37 @@ const App = {
         });
     },
 
+    handleSavePurchase() {
+        const n = document.getElementById('itemName').value;
+        const p = parseInt(document.getElementById('unitPrice').value) || 0;
+        const q = parseFloat(document.getElementById('qty').value) || 0;
+        const c = document.getElementById('category').value;
+        if (!n || p*q <= 0) return alert('정보를 정확히 입력해 주세요.');
+        this.db.purchases.unshift({ id: Date.now(), date: new Date().toISOString().split('T')[0], vendor: '직접 입력', product: n, amount: p*q, type: 'PURCHASE', category: c });
+        this.save(); this.initDashboard(); this.closeModal();
+    },
+
     openModal(id) { 
         this.closeModal();
-        const overlay = document.getElementById('modalOverlay');
         const m = document.getElementById(id);
-        if (overlay && m) { overlay.style.display = 'grid'; m.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+        if (!m) return;
+        
+        // If the element itself is an overlay (like verifyModal)
+        if (m.classList.contains('modal-overlay')) {
+            m.style.display = 'grid';
+            const innerModal = m.querySelector('.modal');
+            if (innerModal) innerModal.style.display = 'block';
+        } else {
+            // Traditional modal inside modalOverlay
+            const overlay = document.getElementById('modalOverlay');
+            if (overlay) overlay.style.display = 'grid';
+            m.style.display = 'block';
+        }
+        document.body.style.overflow = 'hidden';
     },
+
     closeModal() { 
-        const overlay = document.getElementById('modalOverlay');
-        if (overlay) overlay.style.display = 'none'; 
+        document.querySelectorAll('.modal-overlay').forEach(o => o.style.display = 'none');
         document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
         document.body.style.overflow = '';
     }
@@ -605,3 +610,4 @@ const App = {
 
 window.App = App;
 document.addEventListener('DOMContentLoaded', () => App.init());
+

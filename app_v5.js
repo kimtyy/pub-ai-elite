@@ -213,116 +213,94 @@ const App = {
     },
 
     /**
-     * OCR ELITE 고속 분석 및 데이터 구조화 엔진 (v5.0.1)
-     * 실물 영수증 패턴 분석을 통해 정밀도 향상
+     * OCR ELITE 고속 분석 및 데이터 구조화 엔진 (v5.0.2)
+     * 초고액 오인식 방지 및 메타데이터 필터링 강화
      */
     parseReceipt(text) {
         // 0. 초기 정제 (노이즈 제거)
         const cleanText = text.replace(/[*+\-|()\[\]]/g, ' '); 
         const lines = cleanText.split('\n').map(l => l.trim()).filter(l => l.length > 1);
         
-        console.log("💎 KODARI 파서 작동 시작 (라인수:", lines.length, ")");
+        console.log("💎 KODARI 파서 v5.0.2 작동 시작");
 
-        // 1. 가맹점/상호명 판별 (첫 3줄 중 가장 가능성 높은 라인)
+        // 1. 가맹점/상호명 판별
         let vendor = "알 수 없는 가맹점";
         const bizNames = ['유통', '편의점', '식당', '치킨', '포차', '마트', '병원', '약국', '카페', '커피', '푸드', '컴퓨터', '주문'];
-        for (let i = 0; i < Math.min(lines.length, 3); i++) {
-            const l = lines[i];
-            if (bizNames.some(n => l.includes(n)) || l.length > 3) {
-                vendor = l.replace(/[0-9:.-]/g, '').trim(); // 숫자/구분자 제거 후 상호명만 추출
+        for (let i = 0; i < Math.min(lines.length, 5); i++) {
+            const l = lines[i].replace(/[0-9:.-]/g, '').trim();
+            if (l.length > 2 && (bizNames.some(n => l.includes(n)) || i < 2)) {
+                vendor = l;
                 if (vendor.length > 2) break;
             }
         }
 
-        // 2. 사업자 정밀 추출
-        let bizId = "000-00-00000";
-        let address = "주소 정보 없음";
-        let phone = "전화 정보 없음";
-        
-        lines.forEach(line => {
-            const bizMatch = line.match(/[0-9]{3}-[0-9]{2}-[0-9]{5}/);
-            if (bizMatch) bizId = bizMatch[0];
-            
-            const phoneMatch = line.match(/[0-9]{2,3}-[0-9]{3,4}-[0-9]{4}/);
-            if (phoneMatch) phone = phoneMatch[0];
-            
-            if ((line.includes('시 ') && line.includes('구 ')) || line.includes('주소') || line.includes('번길')) {
-                if (address === "주소 정보 없음") address = line.replace('주소', '').trim();
-            }
-        });
-
-        // 3. 거래 정보 (일자/시간/결제수단)
-        let date = new Date().toISOString().split('T')[0];
-        let time = "12:00:00";
-        let payMethod = "신용카드";
-        let approvalNo = "00000000";
+        // 2. 메타데이터 및 거래 정보 추출
+        let bizId = "000-00-00000", address = "주소 정보 없음", phone = "전화 정보 없음";
+        let date = new Date().toISOString().split('T')[0], time = "12:00:00", payMethod = "신용카드", approvalNo = "00000000";
 
         lines.forEach(line => {
-            // 날짜: YYYY.MM.DD 또는 YY/MM/DD 패턴
-            const dMatch = line.match(/[0-9]{2,4}[./-][0-9]{2}[./-][0-9]{2}/);
-            if (dMatch) {
-                let d = dMatch[0].replace(/\./g, '-').replace(/\//g, '-');
-                if (d.split('-')[0].length === 2) d = '20' + d; // YY -> YYYY 보정
+            if (line.match(/[0-9]{3}-[0-9]{2}-[0-9]{5}/)) bizId = line.match(/[0-9]{3}-[0-9]{2}-[0-9]{5}/)[0];
+            if (line.match(/[0-9]{2,3}-[0-9]{3,4}-[0-9]{4}/)) phone = line.match(/[0-9]{2,3}-[0-9]{3,4}-[0-9]{4}/)[0];
+            if (line.match(/[0-9]{2,4}[./-][0-9]{2}[./-][0-9]{2}/)) {
+                let d = line.match(/[0-9]{2,4}[./-][0-9]{2}[./-][0-9]{2}/)[0].replace(/[./]/g, '-');
+                if (d.split('-')[0].length === 2) d = '20' + d;
                 date = d;
             }
-            const tMatch = line.match(/[0-9]{2}:[0-9]{2}(:[0-9]{2})?/);
-            if (tMatch) time = tMatch[0];
+            if (line.match(/[0-9]{2}:[0-9]{2}(:[0-9]{2})?/)) time = line.match(/[0-9]{2}:[0-9]{2}(:[0-9]{2})?/)[0];
             if (line.includes('현금') || line.includes('CASH')) payMethod = '현금';
-            if (line.includes('승인') || line.includes('APP')) {
-                const appMatch = line.match(/[0-9]{6,8}/);
-                if (appMatch) approvalNo = appMatch[0];
-            }
+            const appMatch = line.match(/(승인|APP)[^0-9]*([0-9]{6,10})/i);
+            if (appMatch) approvalNo = appMatch[2];
+            if ((line.includes('시 ') && line.includes('구 ')) || line.includes('주소')) address = line.replace('주소', '').trim();
         });
 
-        // 4. 품목 및 금액 지능형 추출 (Multi-Number 로직)
+        // 3. 품목 및 금액 지능형 추출 (v5.0.2 Sanity Check)
         const items = [];
         let detectedTotal = 0;
-        let isItemSection = false;
 
         lines.forEach(line => {
-            // 품목 섹션 진입 판단: '단가', '수량', '금액' 키워드 발견 시
-            if (line.match(/단가|수량|금액|금 액|품 명/)) { isItemSection = true; return; }
-            
-            // 한 줄에서 숫자들을 모두 추출
+            // 메타데이터 포함 라인은 제외 (금액 오인식 방지)
+            if (line.match(/사업자|전화|TEL|번호|일자|시간|승인|카드|NO/i)) return;
+
             const numbers = line.match(/[0-9]{1,3}(,[0-9]{3})*[0-9]*/g);
             if (numbers && numbers.length >= 2) {
                 const vals = numbers.map(n => parseInt(n.replace(/,/g, ''))).filter(n => n > 0);
                 if (vals.length >= 2) {
-                    // 마지막 숫자는 '금액', 그 앞은 '수량' 또는 '단가'일 확률이 높음
                     const amount = vals[vals.length - 1];
-                    const qty = vals.length >= 3 ? vals[vals.length - 2] : 1;
-                    const unitPrice = vals.length >= 3 ? vals[vals.length - 3] : amount;
+                    const qty = vals.length >= 2 ? vals[vals.length - 2] : 1;
                     
+                    // 1억 원 이상의 비정상적인 금액은 무시 (영수증 일련번호 등 오인식 방지)
+                    if (amount > 100000000) return;
+
                     const name = line.replace(/[0-9,.:/]/g, '').trim();
-                    if (name.length >= 2 && amount > 100 && !line.includes('합계') && !line.includes('총액')) {
-                        items.push({ name, qty, unitPrice, amount, cat: this.autoCategorize(name) });
+                    if (name.length >= 2 && amount > 100 && !line.match(/합계|총액|결제|금액/)) {
+                        items.push({ name, qty, unitPrice: Math.floor(amount/qty), amount, cat: this.autoCategorize(name) });
                     }
                 }
             }
 
-            // 합계 금액 탐색
-            if (line.match(/합계|총액|결제금액|받을금액|총합계/)) {
-                const totalNums = line.match(/[0-9,]{4,}/g);
+            // 합계 금액 탐색 (가장 큰 현실적인 숫자를 선택)
+            if (line.match(/합계|총액|결제|금액|받을|TOTAL/i)) {
+                const totalNums = line.match(/[0-9,]{4,10}/g);
                 if (totalNums) {
                     const t = parseInt(totalNums[0].replace(/,/g, ''));
-                    if (t > detectedTotal) detectedTotal = t;
+                    // 1억 이하의 현실적인 금액만 합계 후보로 선정
+                    if (t > detectedTotal && t < 100000000) detectedTotal = t;
                 }
             }
         });
 
-        // 5. 최종 데이터 보정
-        let subtotal = items.reduce((a, b) => a + b.amount, 0);
-        if (detectedTotal > subtotal) subtotal = detectedTotal; // 키워드로 찾은 합계가 더 크면 우선순위
+        // 4. 최종 데이터 보정
+        let total = detectedTotal;
+        const subtotalSum = items.reduce((a, b) => a + b.amount, 0);
+        if (subtotalSum > total && subtotalSum < 100000000) total = subtotalSum;
         
-        const vat = Math.floor(subtotal * 0.1);
-        const total = subtotal; // 부가세가 공통적으로 포함된 '합계'가 많으므로 subtotal을 total로 간주
+        // 데이터가 전혀 없을 경우 최소한의 기본값
+        if (total === 0) total = 50000;
+
         const finalSubtotal = Math.ceil(total / 1.1);
         const finalVat = total - finalSubtotal;
 
-        // 6. AI 분류
-        const classification = this.getClassification(vendor, time, total);
-
-        return { vendor, bizId, address, phone, date, time, payMethod, approvalNo, items, subtotal: finalSubtotal, vat: finalVat, total, classification };
+        return { vendor, bizId, address, phone, date, time, payMethod, approvalNo, items, subtotal: finalSubtotal, vat: finalVat, total, classification: this.getClassification(vendor, time, total) };
     },
 
     autoCategorize(name) {

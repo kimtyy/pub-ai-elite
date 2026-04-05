@@ -188,8 +188,8 @@ const App = {
         result.style.display = 'none';
         if(statusText) statusText.innerText = "AI 신경망 분석 중...";
 
-        // Real Tesseract call
-        Tesseract.recognize(imgData, 'kor+eng', {
+        // Real Tesseract call (Optimized for Kor/Num Only)
+        Tesseract.recognize(imgData, 'kor', {
             logger: m => {
                 if(m.status === 'recognizing text' && statusText) {
                     const progress = Math.floor(m.progress * 100);
